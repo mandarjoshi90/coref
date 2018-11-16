@@ -24,6 +24,8 @@ class DocumentState(object):
     self.const_stack = []
     self.ner = {}
     self.ner_stack = []
+    self.tok_to_orig_index = []
+    self.orig_to_tok_index = []
     self.clusters = collections.defaultdict(list)
     self.coref_stacks = collections.defaultdict(list)
 
@@ -37,6 +39,8 @@ class DocumentState(object):
     assert len(self.const_stack) == 0
     assert len(self.ner) == 0
     assert len(self.ner_stack) == 0
+    assert len(self.coref_stacks) == 0
+    assert len(self.clusters) == 0
     assert len(self.coref_stacks) == 0
     assert len(self.clusters) == 0
 
@@ -133,8 +137,8 @@ def handle_line(line, document_state, language, labels, stats):
     finalized_state = document_state.finalize()
     stats["num_clusters"] += len(finalized_state["clusters"])
     stats["num_mentions"] += sum(len(c) for c in finalized_state["clusters"])
-    labels["{}_const_labels".format(language)].update(l for _, _, l in finalized_state["constituents"])
-    labels["ner"].update(l for _, _, l in finalized_state["ner"])
+    # labels["{}_const_labels".format(language)].update(l for _, _, l in finalized_state["constituents"])
+    # labels["ner"].update(l for _, _, l in finalized_state["ner"])
     return finalized_state
   else:
     row = line.split()
@@ -154,13 +158,21 @@ def handle_line(line, document_state, language, labels, stats):
     speaker = row[9]
     ner = row[10]
     coref = row[-1]
+    sub_tokens = tokenizer.tokenize(token)
+    word_index = document_state.text.append(word)
+    orig_to_tok_index.append(len(all_doc_tokens))
+    for sub_token in sub_tokens:
+        sub_word_index =  len(document_state.text) + sum(len(s) for s in document_state.sentences)
+        tok_to_orig_index.append(word_index)
 
-    word_index = len(document_state.text) + sum(len(s) for s in document_state.sentences)
-    document_state.text.append(word)
+
+
+
+
     document_state.text_speakers.append(speaker)
 
-    handle_bit(word_index, parse, document_state.const_stack, document_state.constituents)
-    handle_bit(word_index, ner, document_state.ner_stack, document_state.ner)
+    # handle_bit(word_index, parse, document_state.const_stack, document_state.constituents)
+    # handle_bit(word_index, ner, document_state.ner_stack, document_state.ner)
 
     if coref != "-":
       for segment in coref.split("|"):
