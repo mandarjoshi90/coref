@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+
 import re
 import os
 import sys
@@ -12,6 +13,8 @@ import collections
 
 import util
 import conll
+sys.path.append(os.path.abspath('../bert'))
+import tokenization
 
 class DocumentState(object):
   def __init__(self):
@@ -26,6 +29,8 @@ class DocumentState(object):
     self.ner_stack = []
     self.tok_to_orig_index = []
     self.orig_to_tok_index = []
+    self.org_text = []
+    self.org_sentences = []
     self.clusters = collections.defaultdict(list)
     self.coref_stacks = collections.defaultdict(list)
 
@@ -50,8 +55,8 @@ class DocumentState(object):
     assert len(self.text_speakers) == 0
     assert len(self.speakers) > 0
     assert len(self.sentences) > 0
-    assert len(self.constituents) > 0
-    assert len(self.const_stack) == 0
+    # assert len(self.constituents) > 0
+    # assert len(self.const_stack) == 0
     assert len(self.ner_stack) == 0
     assert all(len(s) == 0 for s in self.coref_stacks.values())
 
@@ -126,11 +131,14 @@ def handle_bit(word_index, bit, stack, spans):
     """
     spans[current_span] = label
 
-def handle_line(line, document_state, language, labels, stats):
+def handle_line(line, document_state, language, labels, stats, tokenizer):
   begin_document_match = re.match(conll.BEGIN_DOCUMENT_REGEX, line)
   if begin_document_match:
     document_state.assert_empty()
     document_state.doc_key = conll.get_doc_key(begin_document_match.group(1), begin_document_match.group(2))
+    document_state.org_text.append('[CLS]')
+    document_state.text.append('[CLS]')
+    document_state.text_speakers.append('[CLS]')
     return None
   elif line.startswith("#end document"):
     document_state.assert_finalizable()
@@ -144,9 +152,15 @@ def handle_line(line, document_state, language, labels, stats):
     row = line.split()
     if len(row) == 0:
       stats["max_sent_len_{}".format(language)] = max(len(document_state.text), stats["max_sent_len_{}".format(language)])
+      stats["max_org_sent_len_{}".format(language)] = max(len(document_state.org_text), stats["max_org_sent_len_{}".format(language)])
       stats["num_sents_{}".format(language)] += 1
+      document_state.org_text.append('[SEP]')
+      document_state.text.append('[SEP]')
+      document_state.text_speakers.append('[SEP]')
       document_state.sentences.append(tuple(document_state.text))
       del document_state.text[:]
+      document_state.org_sentences.append(tuple(document_state.org_text))
+      del document_state.org_text[:]
       document_state.speakers.append(tuple(document_state.text_speakers))
       del document_state.text_speakers[:]
       return None
@@ -158,18 +172,16 @@ def handle_line(line, document_state, language, labels, stats):
     speaker = row[9]
     ner = row[10]
     coref = row[-1]
-    sub_tokens = tokenizer.tokenize(token)
-    word_index = document_state.text.append(word)
-    orig_to_tok_index.append(len(all_doc_tokens))
+    sub_tokens = tokenizer.tokenize(word)
+    # orig_to_tok_index.append(len(all_doc_tokens))
+    first_subtoken_index = len(document_state.text) + sum(len(s) for s in document_state.sentences)
     for sub_token in sub_tokens:
-        sub_word_index =  len(document_state.text) + sum(len(s) for s in document_state.sentences)
-        tok_to_orig_index.append(word_index)
-
-
-
-
-
-    document_state.text_speakers.append(speaker)
+        document_state.text.append(sub_token)
+        sub_token_index =  len(document_state.text) + sum(len(s) for s in document_state.sentences)
+        document_state.text_speakers.append(speaker)
+        # tok_to_orig_index.append(word_index)
+    last_subtoken_index = len(document_state.text) + sum(len(s) for s in document_state.sentences) - 1 
+    document_state.org_text.append(word)
 
     # handle_bit(word_index, parse, document_state.const_stack, document_state.constituents)
     # handle_bit(word_index, ner, document_state.ner_stack, document_state.ner)
@@ -179,17 +191,17 @@ def handle_line(line, document_state, language, labels, stats):
         if segment[0] == "(":
           if segment[-1] == ")":
             cluster_id = int(segment[1:-1])
-            document_state.clusters[cluster_id].append((word_index, word_index))
+            document_state.clusters[cluster_id].append((first_subtoken_index, last_subtoken_index))
           else:
             cluster_id = int(segment[1:])
-            document_state.coref_stacks[cluster_id].append(word_index)
+            document_state.coref_stacks[cluster_id].append(first_subtoken_index)
         else:
           cluster_id = int(segment[:-1])
           start = document_state.coref_stacks[cluster_id].pop()
-          document_state.clusters[cluster_id].append((start, word_index))
+          document_state.clusters[cluster_id].append((start, last_subtoken_index))
     return None
 
-def minimize_partition(name, language, extension, labels, stats):
+def minimize_partition(name, language, extension, labels, stats, tokenizer):
   input_path = "{}.{}.{}".format(name, language, extension)
   output_path = "{}.{}.jsonlines".format(name, language)
   count = 0
@@ -198,7 +210,7 @@ def minimize_partition(name, language, extension, labels, stats):
     with open(output_path, "w") as output_file:
       document_state = DocumentState()
       for line in input_file.readlines():
-        document = handle_line(line, document_state, language, labels, stats)
+        document = handle_line(line, document_state, language, labels, stats, tokenizer)
         if document is not None:
           output_file.write(json.dumps(document))
           output_file.write("\n")
@@ -206,17 +218,20 @@ def minimize_partition(name, language, extension, labels, stats):
           document_state = DocumentState()
   print("Wrote {} documents to {}".format(count, output_path))
 
-def minimize_language(language, labels, stats):
-  minimize_partition("dev", language, "v4_gold_conll", labels, stats)
-  minimize_partition("train", language, "v4_gold_conll", labels, stats)
-  minimize_partition("test", language, "v4_gold_conll", labels, stats)
+def minimize_language(language, labels, stats, vocab_file):
+  tokenizer = tokenization.FullTokenizer(
+                vocab_file=vocab_file, do_lower_case=False)
+  minimize_partition("dev", language, "v4_gold_conll", labels, stats, tokenizer)
+  minimize_partition("train", language, "v4_gold_conll", labels, stats, tokenizer)
+  minimize_partition("test", language, "v4_gold_conll", labels, stats, tokenizer)
 
 if __name__ == "__main__":
+  vocab_file = sys.argv[1]
   labels = collections.defaultdict(set)
   stats = collections.defaultdict(int)
-  minimize_language("english", labels, stats)
-  minimize_language("chinese", labels, stats)
-  minimize_language("arabic", labels, stats)
+  minimize_language("english", labels, stats, vocab_file)
+  # minimize_language("chinese", labels, stats)
+  # minimize_language("arabic", labels, stats)
   for k, v in labels.items():
     print("{} = [{}]".format(k, ", ".join("\"{}\"".format(label) for label in v)))
   for k, v in stats.items():
