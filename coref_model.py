@@ -107,7 +107,7 @@ class CorefModel(object):
     # Don't try to restore unused variables from the TF-Hub ELMo module.
     vars_to_restore = [v for v in tf.global_variables() if "module/" not in v.name]
     saver = tf.train.Saver(vars_to_restore)
-    checkpoint_path = os.path.join(self.config["log_dir"], "model-2000.ckpt")
+    checkpoint_path = os.path.join(self.config["log_dir"], "model.max.ckpt")
     print("Restoring from {}".format(checkpoint_path))
     session.run(tf.global_variables_initializer())
     saver.restore(session, checkpoint_path)
@@ -358,14 +358,14 @@ class CorefModel(object):
       with tf.variable_scope("end_scores", reuse=tf.AUTO_REUSE):
         end_scores =  tf.squeeze(util.ffnn(encoded_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout, hidden_initializer=tf.truncated_normal_initializer(stddev=0.02), output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02) ), 1) # [T]
         #end_scores =  tf.squeeze(util.linear(encoded_doc, 1), 1) # [T]
-      #start_end_scores = tf.tile(tf.expand_dims(start_scores, 1), [1, num_words]) + tf.tile(tf.expand_dims(end_scores, 0), [num_words, 1]) # [T, T]
+      start_end_scores = tf.tile(tf.expand_dims(start_scores, 1), [1, num_words]) + tf.tile(tf.expand_dims(end_scores, 0), [num_words, 1]) # [T, T]
       # start_end_scores = tf.Print(start_end_scores, [tf.shape(start_end_scores)], 'start_end')
-      # span_start_doc_scores = tf.gather(start_end_scores, tf.tile(tf.expand_dims(span_starts, 1), [1, num_words])) #[NC, T]
-      # span_scores = tf.gather(span_start_doc_scores, tf.expand_dims(span_ends, 1), axis=1) # [NC, 1]`
-      # span_start_doc_scores = tf.gather(start_end_scores, span_starts) #[NC, T]
+      #span_start_doc_scores = tf.gather(start_end_scores, tf.tile(tf.expand_dims(span_starts, 1), [1, num_words])) #[NC, T]
+      #span_scores = tf.gather(span_start_doc_scores, tf.expand_dims(span_ends, 1), axis=1) # [NC, 1]`
+      span_start_doc_scores = tf.gather(start_end_scores, span_starts) #[NC, T]
       # span_start_doc_scores = tf.Print(span_start_doc_scores, [tf.shape(span_start_doc_scores)], 'start_start_doc')
-      # span_scores = util.batch_gather(span_start_doc_scores, tf.expand_dims(span_ends, 1)) # [NC, 1]`
-      span_scores = tf.expand_dims(tf.gather(start_scores, span_starts) + tf.gather(end_scores, span_ends), 1)
+      span_scores = util.batch_gather(span_start_doc_scores, tf.expand_dims(span_ends, 1)) # [NC, 1]`
+      # span_scores = tf.expand_dims(tf.gather(start_scores, span_starts) + tf.gather(end_scores, span_ends), 1)
       span_width = 1 + span_ends - span_starts # [NC]
       if self.config["use_features"]:
         span_width_index = span_width - 1 # [k]

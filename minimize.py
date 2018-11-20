@@ -136,9 +136,7 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
   if begin_document_match:
     document_state.assert_empty()
     document_state.doc_key = conll.get_doc_key(begin_document_match.group(1), begin_document_match.group(2))
-    document_state.org_text.append('[CLS]')
-    document_state.text.append('[CLS]')
-    document_state.text_speakers.append('[CLS]')
+    document_state.new_sentence = True
     return None
   elif line.startswith("#end document"):
     document_state.assert_finalizable()
@@ -149,6 +147,11 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
     # labels["ner"].update(l for _, _, l in finalized_state["ner"])
     return finalized_state
   else:
+    if document_state.new_sentence:
+        document_state.new_sentence = False
+        document_state.org_text.append('[CLS]')
+        document_state.text.append('[CLS]')
+        document_state.text_speakers.append('[CLS]')
     row = line.split()
     if len(row) == 0:
       stats["max_sent_len_{}".format(language)] = max(len(document_state.text), stats["max_sent_len_{}".format(language)])
@@ -163,6 +166,7 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
       del document_state.org_text[:]
       document_state.speakers.append(tuple(document_state.text_speakers))
       del document_state.text_speakers[:]
+      document_state.new_sentence = True
       return None
     assert len(row) >= 12
 
