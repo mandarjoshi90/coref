@@ -299,7 +299,7 @@ class CorefModel(object):
     candidate_span_emb = self.get_span_emb(flattened_head_emb, context_outputs, candidate_starts, candidate_ends) # [num_candidates, emb]
     # conpute mention scores -- change this
     # context_outputs = tf.Print(context_outputs, [tf.shape(context_outputs)], 'context_outputs')
-    # candidate_mention_scores =  self.get_mention_scores_old(candidate_span_emb)
+    #candidate_mention_scores =  self.get_mention_scores_old(candidate_span_emb)
     candidate_mention_scores =  self.get_mention_scores(context_outputs, candidate_starts, candidate_ends) # [k, 1]
     # candidate_mention_scores = tf.Print(candidate_mention_scores, [tf.shape(candidate_mention_scores)], 'cand mention scores')
     candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1) # [k]
@@ -320,7 +320,7 @@ class CorefModel(object):
     top_span_starts = tf.gather(candidate_starts, top_span_indices) # [k]
     top_span_ends = tf.gather(candidate_ends, top_span_indices) # [k]
     # don't need this
-    #top_span_emb = tf.gather(candidate_span_emb, top_span_indices) # [k, emb]
+    # top_span_emb = tf.gather(candidate_span_emb, top_span_indices) # [k, emb]
     top_span_cluster_ids = tf.gather(candidate_cluster_ids, top_span_indices) # [k]
     top_span_mention_scores = tf.gather(candidate_mention_scores, top_span_indices) # [k]
     top_span_sentence_indices = tf.gather(candidate_sentence_indices, top_span_indices) # [k]
@@ -404,9 +404,10 @@ class CorefModel(object):
       num_words = util.shape(encoded_doc, 0) # T
       # span_starts = tf.Print(span_starts, [tf.shape(span_starts)], 'span_starts')
       with tf.variable_scope("start_scores"):
-        start_scores =  tf.squeeze(util.ffnn(encoded_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout), 1) # [T]
+        start_scores =  tf.squeeze(util.ffnn(encoded_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout, hidden_initializer=tf.truncated_normal_initializer(stddev=0.02), output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02)), 1) # [T]
+        #start_scores =  tf.squeeze(util.linear(encoded_doc, 1), 1) # [T]
       with tf.variable_scope("end_scores"):
-        end_scores =  tf.squeeze(util.ffnn(encoded_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout), 1) # [T]
+        end_scores =  tf.squeeze(util.ffnn(encoded_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout, hidden_initializer=tf.truncated_normal_initializer(stddev=0.02), output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02) ), 1) # [T]
       start_end_scores = tf.tile(tf.expand_dims(start_scores, 1), [1, num_words]) + tf.tile(tf.expand_dims(end_scores, 0), [num_words, 1]) # [T, T]
       # start_end_scores = tf.Print(start_end_scores, [tf.shape(start_end_scores)], 'start_end')
       # span_start_doc_scores = tf.gather(start_end_scores, tf.tile(tf.expand_dims(span_starts, 1), [1, num_words])) #[NC, T]
@@ -457,7 +458,8 @@ class CorefModel(object):
 
   def get_bilinear_scores_xWy(self, x, scope_W, y):
       with tf.variable_scope(scope_W):
-        xW = tf.nn.dropout(util.projection(x, util.shape(x, -1)), self.dropout) # [k, emb]
+        xW = tf.nn.dropout(util.projection(x, util.shape(x, -1), initializer=tf.truncated_normal_initializer(stddev=0.02)), self.dropout) # [k, emb]
+        # xW = tf.nn.dropout(util.projection(x, util.shape(x, -1)), self.dropout) # [k, emb]
         y = tf.nn.dropout(y, self.dropout) # [k, emb]
         output = tf.matmul(xW, y, transpose_b=True) # [k, k]
         # print(output.get_shape())
@@ -500,14 +502,18 @@ class CorefModel(object):
       antecedent_distance_emb = tf.gather(tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]]), antecedent_distance_buckets) # [k, c]
       feature_emb_list.append(antecedent_distance_emb)
 
-    feature_emb = tf.concat(feature_emb_list, 2) # [k, c, emb]
-    feature_emb = tf.nn.dropout(feature_emb, self.dropout) # [k, c, emb]
+    if len(feature_emb_list) > 0:
+      feature_emb = tf.concat(feature_emb_list, 2) # [k, c, emb]
+      feature_emb = tf.nn.dropout(feature_emb, self.dropout) # [k, c, emb]
 
     target_emb = tf.expand_dims(top_span_emb, 1) # [k, 1, emb]
     similarity_emb = top_antecedent_emb * target_emb # [k, c, emb]
     target_emb = tf.tile(target_emb, [1, c, 1]) # [k, c, emb]
 
-    pair_emb = tf.concat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], 2) # [k, c, emb]
+    if len(feature_emb_list) > 0:
+      pair_emb = tf.concat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], 2) # [k, c, emb]
+    else:
+      pair_emb = tf.concat([target_emb, top_antecedent_emb, similarity_emb], 2) # [k, c, emb]
 
     with tf.variable_scope("slow_antecedent_scores"):
       slow_antecedent_scores = util.ffnn(pair_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # [k, c, 1]
@@ -634,10 +640,10 @@ class CorefModel(object):
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
     summary_dict = {}
-    conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
-    average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
-    summary_dict["Average F1 (conll)"] = average_f1
-    print("Average F1 (conll): {:.2f}%".format(average_f1))
+    # conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
+    # average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
+    # summary_dict["Average F1 (conll)"] = average_f1
+    # print("Average F1 (conll): {:.2f}%".format(average_f1))
 
     p,r,f = coref_evaluator.get_prf()
     summary_dict["Average F1 (py)"] = f
@@ -647,4 +653,4 @@ class CorefModel(object):
     summary_dict["Average recall (py)"] = r
     print("Average recall (py): {:.2f}%".format(r * 100))
 
-    return util.make_summary(summary_dict), average_f1
+    return util.make_summary(summary_dict), f

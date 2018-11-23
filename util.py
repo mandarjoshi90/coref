@@ -81,7 +81,7 @@ def highway(inputs, num_layers, dropout):
 def shape(x, dim):
   return x.get_shape()[dim].value or tf.shape(x)[dim]
 
-def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout, output_weights_initializer=None):
+def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout, output_weights_initializer=None, hidden_initializer=None):
   if len(inputs.get_shape()) > 3:
     raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
 
@@ -94,8 +94,8 @@ def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout, output_we
     current_inputs = inputs
 
   for i in range(num_hidden_layers):
-    hidden_weights = tf.get_variable("hidden_weights_{}".format(i), [shape(current_inputs, 1), hidden_size])
-    hidden_bias = tf.get_variable("hidden_bias_{}".format(i), [hidden_size])
+    hidden_weights = tf.get_variable("hidden_weights_{}".format(i), [shape(current_inputs, 1), hidden_size], initializer=hidden_initializer)
+    hidden_bias = tf.get_variable("hidden_bias_{}".format(i), [hidden_size], initializer=tf.zeros_initializer())
     current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
 
     if dropout is not None:
@@ -103,12 +103,25 @@ def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout, output_we
     current_inputs = current_outputs
 
   output_weights = tf.get_variable("output_weights", [shape(current_inputs, 1), output_size], initializer=output_weights_initializer)
-  output_bias = tf.get_variable("output_bias", [output_size])
+  output_bias = tf.get_variable("output_bias", [output_size], initializer=tf.zeros_initializer())
   outputs = tf.nn.xw_plus_b(current_inputs, output_weights, output_bias)
 
   if len(inputs.get_shape()) == 3:
     outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
   return outputs
+
+def linear(inputs, output_size):
+  if len(inputs.get_shape()) == 3:
+    batch_size = shape(inputs, 0)
+    seqlen = shape(inputs, 1)
+    emb_size = shape(inputs, 2)
+    current_inputs = tf.reshape(inputs, [batch_size * seqlen, emb_size])
+  else:
+    current_inputs = inputs
+  hidden_weights = tf.get_variable("linear_w", [shape(current_inputs, 1), output_size])
+  hidden_bias = tf.get_variable("bias", [output_size])
+  current_outputs = tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias)
+  return current_outputs
 
 def cnn(inputs, filter_sizes, num_filters):
   num_words = shape(inputs, 0)
