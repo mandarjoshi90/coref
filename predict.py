@@ -11,6 +11,7 @@ import util
 
 if __name__ == "__main__":
   config = util.initialize_from_env()
+  log_dir = config["log_dir"]
 
   # Input file in .jsonlines format.
   input_filename = sys.argv[2]
@@ -19,9 +20,13 @@ if __name__ == "__main__":
   output_filename = sys.argv[3]
 
   model = cm.CorefModel(config)
+  saver = tf.train.Saver()
 
   with tf.Session() as session:
-    model.restore(session)
+    ckpt = tf.train.get_checkpoint_state(log_dir)
+    if ckpt and ckpt.model_checkpoint_path:
+      print("Restoring from: {}".format(ckpt.model_checkpoint_path))
+      saver.restore(session, ckpt.model_checkpoint_path)
 
     with open(output_filename, "w") as output_file:
       with open(input_filename) as input_file:

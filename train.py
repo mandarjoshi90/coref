@@ -20,6 +20,7 @@ if __name__ == "__main__":
   saver = tf.train.Saver()
 
   log_dir = config["log_dir"]
+  max_steps = config['num_epochs'] * 2802
   writer = tf.summary.FileWriter(log_dir, flush_secs=20)
 
   max_f1 = 0
@@ -38,6 +39,7 @@ if __name__ == "__main__":
     while True:
       tf_loss, tf_global_step, _ = session.run([model.loss, model.global_step, model.train_op])
       accumulated_loss += tf_loss
+      # print('tf global_step', tf_global_step)
 
       if tf_global_step % report_frequency == 0:
         total_time = time.time() - initial_time
@@ -50,7 +52,7 @@ if __name__ == "__main__":
 
       if tf_global_step % eval_frequency == 0:
         saver.save(session, os.path.join(log_dir, "model"), global_step=tf_global_step)
-        eval_summary, eval_f1 = model.evaluate(session)
+        eval_summary, eval_f1 = model.evaluate(session, tf_global_step)
 
         if eval_f1 > max_f1:
           max_f1 = eval_f1
@@ -60,3 +62,5 @@ if __name__ == "__main__":
         writer.add_summary(util.make_summary({"max_eval_f1": max_f1}), tf_global_step)
 
         print("[{}] evaL_f1={:.2f}, max_f1={:.2f}".format(tf_global_step, eval_f1, max_f1))
+        if tf_global_step > max_steps:
+          break

@@ -12,6 +12,12 @@ import util
 if __name__ == "__main__":
   config = util.initialize_from_env()
   model = cm.CorefModel(config)
+  saver = tf.train.Saver()
+  log_dir = config["log_dir"]
   with tf.Session() as session:
-    model.restore(session)
+    ckpt = tf.train.get_checkpoint_state(log_dir)
+    if ckpt and ckpt.model_checkpoint_path:
+      print("Restoring from: {}".format(ckpt.model_checkpoint_path))
+      saver.restore(session, ckpt.model_checkpoint_path)
+    # model.restore(session)
     model.evaluate(session, official_stdout=True)

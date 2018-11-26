@@ -89,7 +89,8 @@ class DocumentState(object):
       "speakers": self.speakers,
       "constituents": self.span_dict_to_list(self.constituents),
       "ner": self.span_dict_to_list(self.ner),
-      "clusters": merged_clusters
+      "clusters": merged_clusters,
+      'sentence_map': self.sentence_map
     }
 
 def normalize_word(word, language):
@@ -131,64 +132,26 @@ def handle_bit(word_index, bit, stack, spans):
     """
     spans[current_span] = label
 
-def handle_line(line, document_state, language, labels, stats, tokenizer):
-  begin_document_match = re.match(conll.BEGIN_DOCUMENT_REGEX, line)
-  if begin_document_match:
-    document_state.assert_empty()
-    document_state.doc_key = conll.get_doc_key(begin_document_match.group(1), begin_document_match.group(2))
-    document_state.new_sentence = True
-    return None
-  elif line.startswith("#end document"):
-    document_state.assert_finalizable()
-    finalized_state = document_state.finalize()
-    stats["num_clusters"] += len(finalized_state["clusters"])
-    stats["num_mentions"] += sum(len(c) for c in finalized_state["clusters"])
-    # labels["{}_const_labels".format(language)].update(l for _, _, l in finalized_state["constituents"])
-    # labels["ner"].update(l for _, _, l in finalized_state["ner"])
-    return finalized_state
-  else:
-    if document_state.new_sentence:
-        document_state.new_sentence = False
-        document_state.org_text.append('[CLS]')
-        document_state.text.append('[CLS]')
-        document_state.text_speakers.append('[CLS]')
-    row = line.split()
-    if len(row) == 0:
-      stats["max_sent_len_{}".format(language)] = max(len(document_state.text), stats["max_sent_len_{}".format(language)])
-      stats["max_org_sent_len_{}".format(language)] = max(len(document_state.org_text), stats["max_org_sent_len_{}".format(language)])
-      stats["num_sents_{}".format(language)] += 1
-      document_state.org_text.append('[SEP]')
-      document_state.text.append('[SEP]')
-      document_state.text_speakers.append('[SEP]')
-      document_state.sentences.append(tuple(document_state.text))
-      del document_state.text[:]
-      document_state.org_sentences.append(tuple(document_state.org_text))
-      del document_state.org_text[:]
-      document_state.speakers.append(tuple(document_state.text_speakers))
-      del document_state.text_speakers[:]
-      document_state.new_sentence = True
-      return None
-    assert len(row) >= 12
-
-    doc_key = conll.get_doc_key(row[0], row[1])
-    word = normalize_word(row[3], language)
+def cleanup_sentence(document_state, offset):
+  # print(document_state.text, offset)
+  row, first_subtoken_index, last_subtoken_index = None, None, None
+  sub_token_index_in_sent = 0
+  while sub_token_index_in_sent < len(document_state.text):
+    if document_state.text[sub_token_index_in_sent] in ['[CLS]', '[SEP]']:
+      sub_token_index_in_sent += 1
+      continue
+    first_subtoken_index = sub_token_index_in_sent + offset
+    row = document_state.current_sentence_info[sub_token_index_in_sent]
+    # print(row, document_state.text[sub_token_index_in_sent])
+    sub_token_index_in_sent += 1
+    while sub_token_index_in_sent < len(document_state.text) and document_state.current_sentence_info[sub_token_index_in_sent] == '[##]':
+      sub_token_index_in_sent += 1
+    last_subtoken_index = sub_token_index_in_sent + offset - 1
     parse = row[5]
     speaker = row[9]
     ner = row[10]
     coref = row[-1]
-    sub_tokens = tokenizer.tokenize(word)
     # orig_to_tok_index.append(len(all_doc_tokens))
-    first_subtoken_index = len(document_state.text) + sum(len(s) for s in document_state.sentences)
-    for sub_token in sub_tokens:
-        document_state.text.append(sub_token)
-        sub_token_index =  len(document_state.text) + sum(len(s) for s in document_state.sentences)
-        document_state.text_speakers.append(speaker)
-        # tok_to_orig_index.append(word_index)
-    last_subtoken_index = len(document_state.text) + sum(len(s) for s in document_state.sentences) - 1 
-    document_state.org_text.append(word)
-
-    # handle_bit(word_index, parse, document_state.const_stack, document_state.constituents)
-    # handle_bit(word_index, ner, document_state.ner_stack, document_state.ner)
 
     if coref != "-":
       for segment in coref.split("|"):
@@ -203,7 +166,88 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
           cluster_id = int(segment[:-1])
           start = document_state.coref_stacks[cluster_id].pop()
           document_state.clusters[cluster_id].append((start, last_subtoken_index))
+
+def handle_line(line, document_state, language, labels, stats, tokenizer):
+  begin_document_match = re.match(conll.BEGIN_DOCUMENT_REGEX, line)
+  if begin_document_match:
+    document_state.assert_empty()
+    document_state.doc_key = conll.get_doc_key(begin_document_match.group(1), begin_document_match.group(2))
+    document_state.current_sentence_info = []
+    document_state.text.append('[CLS]')
+    document_state.current_sentence_info.append('[SPL]')
+    document_state.text_speakers.append('[SPL]')
+    document_state.current_sentence_index = 0
+    document_state.sentence_map = []
     return None
+  elif line.startswith("#end document"):
+    document_state.sentences[-1].append('[SEP]')
+    document_state.speakers[-1].append('[SPL]')
+    document_state.sentence_map.append(document_state.current_sentence_index - 1)
+    num_words =  sum(len(s) for s in document_state.sentences)
+    assert len(document_state.sentence_map) == num_words, (len(document_state.sentence_index), num_words)
+    document_state.assert_finalizable()
+    finalized_state = document_state.finalize()
+    # import ipdb
+    # ipdb.set_trace()
+    stats["num_clusters"] += len(finalized_state["clusters"])
+    stats["num_mentions"] += sum(len(c) for c in finalized_state["clusters"])
+    # labels["{}_const_labels".format(language)].update(l for _, _, l in finalized_state["constituents"])
+    # labels["ner"].update(l for _, _, l in finalized_state["ner"])
+    return finalized_state
+  else:
+    row = line.split()
+    if len(row) == 0:
+      stats["max_sent_len_{}".format(language)] = max(len(document_state.text), stats["max_sent_len_{}".format(language)])
+      stats["max_org_sent_len_{}".format(language)] = max(len(document_state.org_text), stats["max_org_sent_len_{}".format(language)])
+      stats["num_sents_{}".format(language)] += 1
+      if len(document_state.text) >= 512:
+        raise NotImplementedError()
+      if len(document_state.sentences) == 0:
+        document_state.sentences.append([])
+        document_state.speakers.append([])
+      previous_text = document_state.sentences[-1]
+      previous_speakers = document_state.speakers[-1]
+      if len(document_state.text) + len(previous_text) > 510:
+        document_state.sentences[-1].append('[SEP]')
+        document_state.speakers[-1].append('[SPL]')
+        document_state.sentence_map.append(document_state.current_sentence_index - 1)
+        document_state.text = ['[CLS]'] + document_state.text #+ ['[SEP]']
+        document_state.current_sentence_info = ['[SPL]'] + document_state.current_sentence_info #+ ['[SPL]']
+        document_state.text_speakers = ['[SPL]'] + document_state.text_speakers #+ ['[SPL]']
+        document_state.sentences.append([])
+        document_state.speakers.append([])
+        previous_text = document_state.sentences[-1]
+        previous_speakers = document_state.speakers[-1]
+      offset = sum(len(s) for s in document_state.sentences) 
+      cleanup_sentence(document_state, offset)
+      previous_text += document_state.text
+      previous_speakers += document_state.text_speakers
+      for i in range(len(document_state.text)):
+        document_state.sentence_map.append(document_state.current_sentence_index)
+      num_words =  sum(len(s) for s in document_state.sentences)
+      # print(len(document_state.sentence_index), num_words)
+      # import ipdb
+      # ipdb.set_trace()
+      del document_state.text[:]
+      del document_state.current_sentence_info[:]
+      assert len(document_state.sentence_map) == num_words
+      # document_state.speakers.append(tuple(document_state.text_speakers))
+      del document_state.text_speakers[:]
+      document_state.current_sentence_index += 1
+      return None
+    assert len(row) >= 12
+
+    # doc_key = conll.get_doc_key(row[0], row[1])
+    word = normalize_word(row[3], language)
+    speaker = row[9]
+    sub_tokens = tokenizer.tokenize(word)
+    for sub_index, sub_token in enumerate(sub_tokens):
+        document_state.text.append(sub_token)
+        info = '[##]' if sub_index > 0 else row
+        document_state.current_sentence_info.append(info)
+        document_state.text_speakers.append(speaker)
+    return None
+
 
 def minimize_partition(name, language, extension, labels, stats, tokenizer):
   input_path = "{}.{}.{}".format(name, language, extension)
