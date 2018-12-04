@@ -629,17 +629,20 @@ class CorefModel(object):
 
     coref_predictions = {}
     coref_evaluator = metrics.CorefEvaluator()
+    losses = []
 
     for example_num, (tensorized_example, example) in enumerate(self.eval_data):
       _, _, _, _, _, _, _, _, _, gold_starts, gold_ends, _ = tensorized_example
       feed_dict = {i:t for i,t in zip(self.input_tensors, tensorized_example)}
       candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores = session.run(self.predictions, feed_dict=feed_dict)
+      losses.append(session.run(self.loss, feed_dict=feed_dict))
       predicted_antecedents = self.get_predicted_antecedents(top_antecedents, top_antecedent_scores)
       coref_predictions[example["doc_key"]] = self.evaluate_coref(top_span_starts, top_span_ends, predicted_antecedents, example["clusters"], coref_evaluator)
       if example_num % 10 == 0:
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
     summary_dict = {}
+    print(sum(losses) / len(losses))
     # conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
     # average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
     # summary_dict["Average F1 (conll)"] = average_f1
