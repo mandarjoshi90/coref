@@ -23,10 +23,11 @@ if __name__ == "__main__":
   saver = tf.train.Saver()
 
   with tf.Session() as session:
-    ckpt = tf.train.get_checkpoint_state(log_dir)
-    if ckpt and ckpt.model_checkpoint_path:
-      print("Restoring from: {}".format(ckpt.model_checkpoint_path))
-      saver.restore(session, ckpt.model_checkpoint_path)
+    model.restore(session)
+    # ckpt = tf.train.get_checkpoint_state(log_dir)
+    # if ckpt and ckpt.model_checkpoint_path:
+      # print("Restoring from: {}".format(ckpt.model_checkpoint_path))
+      # saver.restore(session, ckpt.model_checkpoint_path)
 
     with open(output_filename, "w") as output_file:
       with open(input_filename) as input_file:
@@ -37,6 +38,8 @@ if __name__ == "__main__":
           _, _, _, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores = session.run(model.predictions, feed_dict=feed_dict)
           predicted_antecedents = model.get_predicted_antecedents(top_antecedents, top_antecedent_scores)
           example["predicted_clusters"], _ = model.get_predicted_clusters(top_span_starts, top_span_ends, predicted_antecedents)
+          example["top_spans"] = list(zip((int(i) for i in top_span_starts), (int(i) for i in top_span_ends)))
+          example['head_scores'] = []
 
           output_file.write(json.dumps(example))
           output_file.write("\n")

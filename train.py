@@ -7,7 +7,8 @@ import os
 import time
 
 import tensorflow as tf
-import coref_model as cm
+# import coref_model as cm
+import truncated_coref_model  as cm 
 import util
 
 if __name__ == "__main__":
@@ -50,7 +51,7 @@ if __name__ == "__main__":
         writer.add_summary(util.make_summary({"loss": average_loss}), tf_global_step)
         accumulated_loss = 0.0
 
-      if tf_global_step % eval_frequency == 0:
+      if tf_global_step  > 0 and tf_global_step % eval_frequency == 0:
         saver.save(session, os.path.join(log_dir, "model"), global_step=tf_global_step)
         eval_summary, eval_f1 = model.evaluate(session, tf_global_step)
 
@@ -61,6 +62,6 @@ if __name__ == "__main__":
         writer.add_summary(eval_summary, tf_global_step)
         writer.add_summary(util.make_summary({"max_eval_f1": max_f1}), tf_global_step)
 
-        print("[{}] evaL_f1={:.2f}, max_f1={:.2f}".format(tf_global_step, eval_f1, max_f1))
+        print("[{}] evaL_f1={:.4f}, max_f1={:.4f}".format(tf_global_step, eval_f1, max_f1))
         if tf_global_step > max_steps:
           break

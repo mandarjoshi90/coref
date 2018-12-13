@@ -64,7 +64,7 @@ def load_char_dict(char_vocab_path):
 def maybe_divide(x, y):
   return 0 if y == 0 else x / float(y)
 
-def projection(inputs, output_size, initializer=None):
+def projection(inputs, output_size, initializer=tf.truncated_normal_initializer(stddev=0.02)):
   return ffnn(inputs, 0, -1, output_size, dropout=None, output_weights_initializer=initializer)
 
 def highway(inputs, num_layers, dropout):
@@ -81,7 +81,7 @@ def highway(inputs, num_layers, dropout):
 def shape(x, dim):
   return x.get_shape()[dim].value or tf.shape(x)[dim]
 
-def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout, output_weights_initializer=None, hidden_initializer=None):
+def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout, output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02), hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
   if len(inputs.get_shape()) > 3:
     raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
 
