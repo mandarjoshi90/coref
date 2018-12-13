@@ -348,7 +348,7 @@ class CorefModel(object):
     if self.config['fine_grained']:
       for i in range(self.config["coref_depth"]):
         with tf.variable_scope("coref_layer", reuse=(i > 0)):
-          top_antecedent_emb = tf.gather(top_span_emb, top_antecedents) # [k, c, emb]
+          # top_antecedent_emb = tf.gather(top_span_emb, top_antecedents) # [k, c, emb]
           top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb) # [k, c]
           top_antecedent_weights = tf.nn.softmax(tf.concat([dummy_scores, top_antecedent_scores], 1)) # [k, c + 1]
           top_antecedent_emb = tf.concat([tf.expand_dims(top_span_emb, 1), top_antecedent_emb], 1) # [k, c + 1, emb]
@@ -376,6 +376,55 @@ class CorefModel(object):
     loss = tf.reduce_sum(loss) # []
 
     return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores], loss
+
+  def get_segment_pairs(self, mention_segments, antecedent_segments, num_segs):
+    # make unique
+    men_ante_1d = mention_segments * num_segs + antecedent_segments
+    unique_men_ante_1d, to_unique_idx = tf.unique(men_ante_1d)
+    unique_mention_segments = unique_men_ante_1d // num_segs
+    unique_antecedent_segments = unique_men_ante_1d % num_segs # [kc]
+    # get tokens
+    mention_segment_tokens = tf.gather(tokens, unique_mention_segments)
+    antecedent_segment_tokens = tf.gather(tokens, unique_antecedent_segments)
+    return mention_segment_tokens, antecedent_segment_tokens, to_unique_idx
+
+  def get_paired_segments(self, mention_segment_tokens, antecedent_segment_tokens):
+    pairs = tf.concat((mention_segment_tokens, antecedent_segment_tokens[:, 1:]), axis=1)
+    return pairs
+
+  def get_segmented_idxs(self, to_unique_idxs, word_seg_idxs, idxs):
+    seg_idx = tf.gather(word_seg_idxs, idxs)
+    return to_unique_idxs * num_segs + seg_idx
+
+  def get_span_reps(segment_pair_reps, top_starts, top_ends, top_antecedents):
+    segmented_starts, segmented_ends = None, None # [k]
+    segmented_antecedent_starts, segmented_antecedent_ends = tf.gather(segmented_starts, top_antecedents), tf.gather(segmented_ends, top_antecedents)
+    mention_token_reps, antecedent_token_reps = segment_pair_reps[:, :256], segment_pair_reps[:, 256:]
+
+
+  def get_cross_segment_embeddings(self, tokens, mask, top_starts, top_ends,top_antecedents):
+    k, c = util.shape(top_starts), util.shape(top_antecedents)[1]
+    num_segs, seg_len = util.shape(tokens)
+    starts_tiled = tf.tile(top_starts, [c])
+    word_segments = tf.tile(tf.expand_dims(tf.range(0, num_segs), 1), [1, seg_len])
+    word_seg_idxs = tf.tile(tf.expand_dims(tf.range(0, seg_len), 0), [num_segs, 1])
+    mention_segments = tf.gather(word_segments, starts_tiled)
+    antecedent_segments = tf.gather(word_segments, antecedent_starts)
+    mention_segment_tokens, antecedent_segment_tokens = self.get_segment_pairs(mention_segments, antecedent_segments, num_segs)
+    paired_segments, paired_mask = self.get_paired_segments()
+    model = modeling.BertModel(
+      config=self.bert_config,
+      is_training=is_training,
+      input_ids=paired_segments,
+      input_mask=paired_masks,
+      # use_tpu is False
+      use_one_hot_embeddings=False)
+    segment_pair_reps = model.get_sequence_output()
+    mention_token_reps, antecedent_token_reps = None, None 
+    mention_span_reps, antecedent_span_reps = None, None #[k, emb], [k, c, emb]
+    return mention_span_reps, antecedent_span_reps
+
+    pass
 
 
   def get_span_emb(self, head_emb, context_outputs, span_starts, span_ends):
