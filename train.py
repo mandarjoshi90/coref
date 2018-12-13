@@ -49,7 +49,7 @@ if __name__ == "__main__":
         writer.add_summary(util.make_summary({"loss": average_loss}), tf_global_step)
         accumulated_loss = 0.0
 
-      if tf_global_step % eval_frequency == 0:
+      if tf_global_step  > 0 and tf_global_step % eval_frequency == 0:
         saver.save(session, os.path.join(log_dir, "model"), global_step=tf_global_step)
         eval_summary, eval_f1 = model.evaluate(session)
 
