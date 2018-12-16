@@ -312,8 +312,8 @@ class CorefModel(object):
     #candidate_mention_scores = tf.boolean_mask(candidate_mention_scores, flattened_candidate_mask) # [num_candidates]
 
     # beam size
-    k = tf.minimum(1000, tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
-    c = tf.minimum(tf.cond(is_training, lambda : self.config['max_top_antecedents'], lambda : 50), k)
+    k = tf.minimum(4000, tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
+    c = tf.minimum(tf.cond(is_training, lambda : self.config['max_top_antecedents'], lambda : 30), k)
     # k = tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"]))
     # pull from beam
     top_span_indices = coref_ops.extract_spans(tf.expand_dims(candidate_mention_scores, 0),
