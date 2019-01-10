@@ -10,6 +10,10 @@ import tensorflow as tf
 # import coref_model as cm
 import truncated_coref_model  as cm 
 import util
+import logging
+format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+logging.basicConfig(format=format, level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
   config = util.initialize_from_env()
@@ -25,6 +29,7 @@ if __name__ == "__main__":
   writer = tf.summary.FileWriter(log_dir, flush_secs=20)
 
   max_f1 = 0
+  mode = 'w'
 
   with tf.Session() as session:
     session.run(tf.global_variables_initializer())
@@ -35,6 +40,10 @@ if __name__ == "__main__":
     if ckpt and ckpt.model_checkpoint_path:
       print("Restoring from: {}".format(ckpt.model_checkpoint_path))
       saver.restore(session, ckpt.model_checkpoint_path)
+      mode = 'a'
+    fh = logging.FileHandler(os.path.join(log_dir, 'stdout.log'), mode=mode)
+    fh.setFormatter(logging.Formatter(format))
+    logger.addHandler(fh)
 
     initial_time = time.time()
     while True:
@@ -47,7 +56,7 @@ if __name__ == "__main__":
         steps_per_second = tf_global_step / total_time
 
         average_loss = accumulated_loss / report_frequency
-        print("[{}] loss={:.2f}, steps/s={:.2f}".format(tf_global_step, average_loss, steps_per_second))
+        logger.info("[{}] loss={:.2f}, steps/s={:.2f}".format(tf_global_step, average_loss, steps_per_second))
         writer.add_summary(util.make_summary({"loss": average_loss}), tf_global_step)
         accumulated_loss = 0.0
 
@@ -62,6 +71,6 @@ if __name__ == "__main__":
         writer.add_summary(eval_summary, tf_global_step)
         writer.add_summary(util.make_summary({"max_eval_f1": max_f1}), tf_global_step)
 
-        print("[{}] evaL_f1={:.4f}, max_f1={:.4f}".format(tf_global_step, eval_f1, max_f1))
+        logger.info("[{}] evaL_f1={:.4f}, max_f1={:.4f}".format(tf_global_step, eval_f1, max_f1))
         if tf_global_step > max_steps:
           break

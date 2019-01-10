@@ -65,10 +65,10 @@ class CorefModel(object):
       init_string = ""
       if var.name in initialized_variable_names:
         init_string = ", *INIT_FROM_CKPT*"
-      # tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
-                      # init_string)
-      print("  name = %s, shape = %s%s", var.name, var.shape,
+      tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                       init_string)
+      # print("  name = %s, shape = %s%s", var.name, var.shape,
+                      # init_string)
 
     num_train_steps = int(
                     2802 * self.config['num_epochs'])
@@ -260,7 +260,8 @@ class CorefModel(object):
       input_ids=input_ids,
       input_mask=input_mask,
       # use_tpu is False
-      use_one_hot_embeddings=False)
+      use_one_hot_embeddings=False,
+      scope='bert')
     all_encoder_layers = model.get_all_encoder_layers()
     # mention_doc = all_encoder_layers[-2]
     # antecedent_doc = all_encoder_layers[-1]
@@ -344,7 +345,11 @@ class CorefModel(object):
     # antecedent_score_fn = self.get_span_antecedent_scores if self.config['use_span_reps'] else self.get_antecedent_scores
     # top_antecedent_scores, top_antecedents, top_antecedents_mask = antecedent_score_fn(mention_doc, antecedent_doc, top_span_starts, top_span_ends, top_span_mention_scores)
     top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets = self.coarse_to_fine_pruning(top_span_emb, top_span_mention_scores, c)
-
+    num_segs, seg_len = util.shape(input_ids, 0), util.shape(input_ids, 1)
+    word_segments = tf.tile(tf.expand_dims(tf.range(0, num_segs), 1), [1, seg_len])
+    mention_segments = tf.expand_dims(tf.gather(word_segments, top_span_starts), 1)
+    antecedent_segments = tf.expand_dims(tf.gather(word_segments, tf.gather(top_span_starts, top_antecedents)), 1)
+    segment_distance = tf.clip_by_value(mention_segments - antecedent_segments, 0, self.config['max_training_sentences'] - 1) if self.config['use_segment_distance'] else None
     if self.config['fine_grained']:
       for i in range(self.config["coref_depth"]):
         with tf.variable_scope("coref_layer", reuse=(i > 0)):
@@ -646,7 +651,7 @@ class CorefModel(object):
     combined_idx = use_identity * distances + (1 - use_identity) * logspace_idx
     return tf.clip_by_value(combined_idx, 0, 9)
 
-  def get_slow_antecedent_scores(self, top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb):
+  def get_slow_antecedent_scores(self, top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, segment_distance=None):
     k = util.shape(top_span_emb, 0)
     c = util.shape(top_antecedents, 1)
 
@@ -667,6 +672,11 @@ class CorefModel(object):
       antecedent_distance_emb = tf.gather(tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]]), antecedent_distance_buckets) # [k, c]
       #antecedent_dist_emb = tf.Print(antecedent_distance_emb, [tf.shape(antecedent_distance_emb)], 'ant dist')
       feature_emb_list.append(antecedent_distance_emb)
+    if segment_distance is not None:
+      with tf.variable_scope('segment_distance', reuse=tf.AUTO_REUSE):
+        segment_distance_emb = tf.gather(tf.get_variable("segment_distance_embeddings", [self.config['max_training_sentences'], self.config["feature_size"]]), segment_distance) # [k, emb]
+      span_width_emb = tf.nn.dropout(segment_distance_emb, self.dropout)
+      feature_emb_list.append(segment_distance_emb)
 
     feature_emb = tf.concat(feature_emb_list, 2) # [k, c, emb]
     feature_emb = tf.nn.dropout(feature_emb, self.dropout) # [k, c, emb]
@@ -780,10 +790,10 @@ class CorefModel(object):
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
     summary_dict = {}
-    with open('doc_keys', 'w') as f:
-      for key in doc_keys:
-        f.write(key + '\n')
-    print(global_step, len(losses), sum(losses) / len(losses))
+    # with open('doc_keys', 'w') as f:
+      # for key in doc_keys:
+        # f.write(key + '\n')
+    # print(global_step, len(losses), sum(losses) / len(losses))
     # conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
     # average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
     # summary_dict["Average F1 (conll)"] = average_f1

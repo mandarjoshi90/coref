@@ -19,8 +19,8 @@ import pyhocon
 def initialize_from_env():
   if "GPU" in os.environ:
     set_gpus(int(os.environ["GPU"]))
-  else:
-    set_gpus()
+  # else:
+    # set_gpus()
 
   name = sys.argv[1]
   print("Running experiment: {}".format(name))
@@ -42,6 +42,7 @@ def flatten(l):
   return [item for sublist in l for item in sublist]
 
 def set_gpus(*gpus):
+  # pass
   os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in gpus)
   print("Setting CUDA_VISIBLE_DEVICES to: {}".format(os.environ["CUDA_VISIBLE_DEVICES"]))
 
