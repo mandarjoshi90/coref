@@ -25,7 +25,7 @@ import tokenization
 import modeling
 import optimization
 
-max_segment_len = 250
+max_segment_len = 230
 class CorefModel(object):
   def __init__(self, config):
     self.config = config
@@ -475,34 +475,45 @@ class CorefModel(object):
 
     unique_mention_segments, unique_antecedent_segments, to_unique_idxs =  self.get_segment_pairs(mention_segments, antecedent_segments, num_segs, same_seg_mask)
     paired_segments, paired_mask, mention_segment_lens = self.get_paired_segments(tokens, mask, unique_mention_segments, unique_antecedent_segments)
+    num_pairs = util.shape(paired_segments, 0)
+    to_unique_idxs = tf.cond(num_pairs > 1, lambda :( same_seg_mask * (to_unique_idxs - 1))[c:], lambda : to_unique_idxs)
+    same_seg_mask = tf.expand_dims(tf.reshape(tf.to_float(same_seg_mask), [k, c]), 2)[1:, :, :]
+    mention_span_reps = (1 - same_seg_mask) * tf.expand_dims(top_span_emb, 1)
+    antecedent_span_reps = (1 - same_seg_mask) * tf.gather(top_span_emb, top_antecedents[1:, :] - 1)
+    dim = util.shape(top_span_emb, -1)
+    segment_distance = tf.cond(num_pairs > 1, lambda: segment_distance[c:], lambda : segment_distance)
+    paired_segments = tf.cond(num_pairs > 1, lambda : paired_segments[1:, :], lambda: paired_segments)
+    paired_mask = tf.cond(num_pairs > 1, lambda : paired_mask[1:, :], lambda: paired_mask)
+    mention_segment_lens = tf.cond(num_pairs > 1, lambda : mention_segment_lens[1:], lambda: mention_segment_lens)
+
+    starts_tiled = tf.cond(num_pairs > 1, lambda: starts_tiled[c:], lambda : starts_tiled)
+    ends_tiled = tf.cond(num_pairs > 1, lambda: ends_tiled[c:], lambda : ends_tiled)
+    antecedent_starts = tf.cond(num_pairs > 1, lambda: antecedent_starts[c:], lambda : antecedent_starts)
+    antecedent_ends = tf.cond(num_pairs > 1, lambda: antecedent_ends[c:], lambda : antecedent_ends)
     model = modeling.BertModel(
-      config=self.bert_config,
-      is_training=is_training,
-      input_ids=paired_segments,
-      input_mask=paired_mask,
-      # use_tpu is False
-      use_one_hot_embeddings=False,
-      scope='bert')
+        config=self.bert_config,
+        is_training=is_training,
+        input_ids=paired_segments,
+        input_mask=paired_mask,
+        # use_tpu is False
+        use_one_hot_embeddings=False,
+        scope='bert')
     segment_pair_reps = model.get_sequence_output()
 
-    dim = util.shape(segment_pair_reps, 2)
-    # segment_pair_reps = tf.Print(segment_pair_reps, [tf.shape(tokens), tf.shape(segment_pair_reps), tf.shape(starts_tiled), tf.shape(antecedent_ends), tf.shape(to_unique_idxs), tf.shape(word_seg_idxs), k, c], 'seg pair resp')
-    mention_span_reps, antecedent_span_reps = self.get_span_reps(segment_pair_reps, starts_tiled, ends_tiled, antecedent_starts, antecedent_ends, word_seg_idxs, to_unique_idxs, segment_distance, mention_segment_lens) #[kc, emb], [kc, emb]
-    dim = util.shape(segment_pair_reps, 2) * 2
-    if self.config['model_heads']:
-      dim +=  util.shape(segment_pair_reps, 2)
-    if self.config['use_features']:
-      dim += self.config['feature_size']
-    # if self.config['use_segment_distance']:
-      # dim += self.config['feature_size']
-    mention_span_reps = tf.reshape(tf.expand_dims(mention_span_reps, 1), [k, c, dim])[1:, :, :]
-    same_seg_mask = tf.expand_dims(tf.reshape(tf.to_float(same_seg_mask), [k, c]), 2)[1:, :, :]
-    if same_seg_mask is not None:
-      mention_span_reps = same_seg_mask * mention_span_reps + (1 - same_seg_mask) * tf.expand_dims(top_span_emb, 1)
-    antecedent_span_reps = tf.reshape(tf.expand_dims(antecedent_span_reps, 1), [k, c, dim])[1:, :, :]
-    if same_seg_mask is not None:
-        antecedent_span_reps = same_seg_mask * antecedent_span_reps + (1 - same_seg_mask) * tf.gather(top_span_emb, top_antecedents[1:, :] - 1)
-    segment_distance = tf.reshape(segment_distance, [k, c])[1:, :]
+    paired_mention_span_reps, paired_antecedent_span_reps = self.get_span_reps(segment_pair_reps, starts_tiled, ends_tiled, antecedent_starts, antecedent_ends, word_seg_idxs, to_unique_idxs, segment_distance, mention_segment_lens) #[kc, emb], [kc, emb]
+      # dim = util.shape(segment_pair_reps, 2) * 2
+      # if self.config['model_heads']:
+        # dim +=  util.shape(segment_pair_reps, 2)
+      # if self.config['use_features']:
+        # dim += self.config['feature_size']
+    paired_mention_span_reps = tf.cond(num_pairs > 1, lambda:  tf.reshape(tf.expand_dims(paired_mention_span_reps, 1), [k - 1, c, dim]), lambda:  tf.reshape(tf.expand_dims(paired_mention_span_reps, 1), [k, c, dim])[1:, :, :])
+    paired_mention_span_reps *= same_seg_mask
+    paired_antecedent_span_reps = tf.cond(num_pairs > 1, lambda:  tf.reshape(tf.expand_dims(paired_antecedent_span_reps, 1), [k - 1, c, dim]), lambda:  tf.reshape(tf.expand_dims(paired_antecedent_span_reps, 1), [k, c, dim])[1:, :, :])
+    paired_antecedent_span_reps *= same_seg_mask
+    mention_span_reps += paired_mention_span_reps
+    antecedent_span_reps += paired_antecedent_span_reps
+    segment_distance = tf.cond(num_pairs > 1, lambda:tf.reshape(segment_distance, [k - 1, c]), lambda : tf.reshape(segment_distance, [k, c])[1:, :])
+
     return mention_span_reps, antecedent_span_reps, segment_distance
 
   def get_span_emb(self, context_outputs, span_starts, span_ends):

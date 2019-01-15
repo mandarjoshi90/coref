@@ -16,7 +16,7 @@ import conll
 sys.path.append(os.path.abspath('../bert'))
 import tokenization
 
-max_segment_len = 250
+max_segment_len = 230
 
 class DocumentState(object):
   def __init__(self):
@@ -94,6 +94,12 @@ class DocumentState(object):
       "clusters": merged_clusters,
       'sentence_map': self.sentence_map
     }
+
+def skip(document_state):
+    # if document_state.doc_key == 'nw/xinhua/00/chtb_0078_0':
+  if document_state.doc_key in ['nw/xinhua/00/chtb_0078_0', 'wb/eng/00/eng_0004_1']: #, 'nw/xinhua/01/chtb_0194_0', 'nw/xinhua/01/chtb_0157_0']:
+    return True
+  return False
 
 def normalize_word(word, language):
   if language == "arabic":
@@ -183,7 +189,7 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
     document_state.sentence_map = []
     return None
   elif line.startswith("#end document"):
-    if document_state.doc_key == 'nw/xinhua/00/chtb_0078_0':
+    if skip(document_state):
       return document_state
     document_state.sentences[-1].append('[SEP]')
     document_state.speakers[-1].append('[SPL]')
@@ -200,7 +206,7 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
     # labels["ner"].update(l for _, _, l in finalized_state["ner"])
     return finalized_state
   else:
-    if document_state.doc_key == 'nw/xinhua/00/chtb_0078_0':
+    if skip(document_state):
       return None
     row = line.split()
     if len(row) == 0:
@@ -269,7 +275,7 @@ def minimize_partition(name, language, extension, labels, stats, tokenizer):
       for line in input_file.readlines():
         document = handle_line(line, document_state, language, labels, stats, tokenizer)
         if document is not None:
-          if document_state.doc_key == 'nw/xinhua/00/chtb_0078_0':
+          if skip(document_state):
             document_state = DocumentState()
             continue
           output_file.write(json.dumps(document))
