@@ -25,7 +25,7 @@ import tokenization
 import modeling
 import optimization
 
-max_segment_len = 230
+max_segment_len = 250
 class CorefModel(object):
   def __init__(self, config):
     self.config = config
@@ -358,13 +358,15 @@ class CorefModel(object):
           # top_antecedent_emb = tf.gather(top_span_emb[:, 0, :], top_antecedents) # [k, c, emb]
           # slow_scores = tf.squeeze(util.ffnn(top_span_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout), 2) # [k, c, 1]
           top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, segment_distance) # [k, c]
-          # break
-          # top_antecedent_weights = tf.nn.softmax(tf.concat([dummy_scores, top_antecedent_scores], 1)) # [k, c + 1]
-          # top_antecedent_emb = tf.concat([tf.expand_dims(top_span_emb, 1), top_antecedent_emb], 1) # [k, c + 1, emb]
-          # attended_span_emb = tf.reduce_sum(tf.expand_dims(top_antecedent_weights, 2) * top_antecedent_emb, 1) # [k, emb]
-          # with tf.variable_scope("f"):
-            # f = tf.sigmoid(util.projection(tf.concat([top_span_emb, attended_span_emb], 1), util.shape(top_span_emb, -1))) # [k, emb]
-            # top_span_emb = f * attended_span_emb + (1 - f) * top_span_emb # [k, emb]
+          if self.config['higher_order']:
+            top_antecedent_weights = tf.nn.softmax(tf.concat([dummy_scores, top_antecedent_scores], 1)) # [k, c + 1]
+            mention_weights = tf.nn.softmax(util.projection(top_span_emb, 1), 1) # [k, c, 1]3
+            att_top_span_emb = tf.reduce_sum(mention_weights * top_span_emb, 1) # [k, 1, emb]
+            antecedent_emb = tf.concat([tf.expand_dims(att_top_span_emb, 1), top_antecedent_emb], 1) # [k, c + 1, emb]
+            attended_span_emb = tf.reduce_sum(tf.expand_dims(top_antecedent_weights, 2) * antecedent_emb, 1) # [k, emb]
+            with tf.variable_scope("f"):
+              f = tf.sigmoid(util.projection(tf.concat([att_top_span_emb, attended_span_emb], 1), util.shape(top_span_emb, -1))) # [k, emb]
+              top_span_emb = tf.expand_dims(f * attended_span_emb, 1) + tf.expand_dims(1 - f, 1) * top_span_emb # [k, c, emb]
     else:
         top_antecedent_scores = top_fast_antecedent_scores
     
@@ -474,7 +476,7 @@ class CorefModel(object):
     segment_distance = tf.clip_by_value(mention_segments - antecedent_segments, 0, self.config['max_training_sentences'] - 1) if self.config['use_segment_distance'] else None
 
     unique_mention_segments, unique_antecedent_segments, to_unique_idxs =  self.get_segment_pairs(mention_segments, antecedent_segments, num_segs, same_seg_mask)
-    paired_segments, paired_mask, mention_segment_lens = self.get_paired_segments(tokens, mask, unique_mention_segments, unique_antecedent_segments)
+    paired_segments, paired_mask, antecedent_segment_lens = self.get_paired_segments(tokens, mask, unique_antecedent_segments, unique_mention_segments)
     num_pairs = util.shape(paired_segments, 0)
     to_unique_idxs = tf.cond(num_pairs > 1, lambda :( same_seg_mask * (to_unique_idxs - 1))[c:], lambda : to_unique_idxs)
     same_seg_mask = tf.expand_dims(tf.reshape(tf.to_float(same_seg_mask), [k, c]), 2)[1:, :, :]
@@ -484,7 +486,7 @@ class CorefModel(object):
     segment_distance = tf.cond(num_pairs > 1, lambda: segment_distance[c:], lambda : segment_distance)
     paired_segments = tf.cond(num_pairs > 1, lambda : paired_segments[1:, :], lambda: paired_segments)
     paired_mask = tf.cond(num_pairs > 1, lambda : paired_mask[1:, :], lambda: paired_mask)
-    mention_segment_lens = tf.cond(num_pairs > 1, lambda : mention_segment_lens[1:], lambda: mention_segment_lens)
+    antecedent_segment_lens = tf.cond(num_pairs > 1, lambda : antecedent_segment_lens[1:], lambda: antecedent_segment_lens)
 
     starts_tiled = tf.cond(num_pairs > 1, lambda: starts_tiled[c:], lambda : starts_tiled)
     ends_tiled = tf.cond(num_pairs > 1, lambda: ends_tiled[c:], lambda : ends_tiled)
@@ -500,7 +502,7 @@ class CorefModel(object):
         scope='bert')
     segment_pair_reps = model.get_sequence_output()
 
-    paired_mention_span_reps, paired_antecedent_span_reps = self.get_span_reps(segment_pair_reps, starts_tiled, ends_tiled, antecedent_starts, antecedent_ends, word_seg_idxs, to_unique_idxs, segment_distance, mention_segment_lens) #[kc, emb], [kc, emb]
+    paired_antecedent_span_reps, paired_mention_span_reps = self.get_span_reps(segment_pair_reps, antecedent_starts, antecedent_ends,  starts_tiled, ends_tiled, word_seg_idxs, to_unique_idxs, segment_distance, antecedent_segment_lens) #[kc, emb], [kc, emb]
       # dim = util.shape(segment_pair_reps, 2) * 2
       # if self.config['model_heads']:
         # dim +=  util.shape(segment_pair_reps, 2)

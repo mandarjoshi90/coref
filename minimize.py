@@ -16,7 +16,7 @@ import conll
 sys.path.append(os.path.abspath('../bert'))
 import tokenization
 
-max_segment_len = 230
+max_segment_len = 250
 
 class DocumentState(object):
   def __init__(self):
@@ -97,7 +97,7 @@ class DocumentState(object):
 
 def skip(document_state):
     # if document_state.doc_key == 'nw/xinhua/00/chtb_0078_0':
-  if document_state.doc_key in ['nw/xinhua/00/chtb_0078_0', 'wb/eng/00/eng_0004_1']: #, 'nw/xinhua/01/chtb_0194_0', 'nw/xinhua/01/chtb_0157_0']:
+  if document_state.doc_key in ['nw/xinhua/00/chtb_0078_0']: #, 'wb/eng/00/eng_0004_1']: #, 'nw/xinhua/01/chtb_0194_0', 'nw/xinhua/01/chtb_0157_0']:
     return True
   return False
 
