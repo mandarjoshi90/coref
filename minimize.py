@@ -16,7 +16,7 @@ import conll
 sys.path.append(os.path.abspath('../bert'))
 import tokenization
 
-max_segment_len = 270
+max_segment_len = 230
 
 class DocumentState(object):
   def __init__(self):
@@ -94,6 +94,12 @@ class DocumentState(object):
       "clusters": merged_clusters,
       'sentence_map': self.sentence_map
     }
+
+def skip(document_state):
+    # if document_state.doc_key == 'nw/xinhua/00/chtb_0078_0':
+  if document_state.doc_key in ['nw/xinhua/00/chtb_0078_0', 'wb/eng/00/eng_0004_1']: #, 'nw/xinhua/01/chtb_0194_0', 'nw/xinhua/01/chtb_0157_0']:
+    return True
+  return False
 
 def normalize_word(word, language):
   if language == "arabic":
@@ -183,6 +189,8 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
     document_state.sentence_map = []
     return None
   elif line.startswith("#end document"):
+    if skip(document_state):
+      return document_state
     document_state.sentences[-1].append('[SEP]')
     document_state.speakers[-1].append('[SPL]')
     document_state.sentence_map.append(document_state.current_sentence_index - 1)
@@ -198,12 +206,15 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
     # labels["ner"].update(l for _, _, l in finalized_state["ner"])
     return finalized_state
   else:
+    if skip(document_state):
+      return None
     row = line.split()
     if len(row) == 0:
       stats["max_sent_len_{}".format(language)] = max(len(document_state.text), stats["max_sent_len_{}".format(language)])
       stats["max_org_sent_len_{}".format(language)] = max(len(document_state.org_text), stats["max_org_sent_len_{}".format(language)])
       stats["num_sents_{}".format(language)] += 1
       if len(document_state.text) >= max_segment_len:
+        # return None
         raise NotImplementedError()
       if len(document_state.sentences) == 0:
         document_state.sentences.append([])
@@ -264,6 +275,9 @@ def minimize_partition(name, language, extension, labels, stats, tokenizer):
       for line in input_file.readlines():
         document = handle_line(line, document_state, language, labels, stats, tokenizer)
         if document is not None:
+          if skip(document_state):
+            document_state = DocumentState()
+            continue
           output_file.write(json.dumps(document))
           output_file.write("\n")
           count += 1

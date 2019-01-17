@@ -24,7 +24,7 @@ sys.path.append(os.path.abspath('../bert'))
 import tokenization
 import modeling
 import optimization
-
+max_segment_len = 230
 class CorefModel(object):
   def __init__(self, config):
     self.config = config
@@ -159,7 +159,7 @@ class CorefModel(object):
     sentence_map = example['sentence_map']
 
 
-    max_sentence_length = 270 #max(len(s) for s in sentences)
+    max_sentence_length = max_segment_len #270 #max(len(s) for s in sentences)
     text_len = np.array([len(s) for s in sentences])
 
     input_ids, input_mask, speaker_ids = [], [], []
