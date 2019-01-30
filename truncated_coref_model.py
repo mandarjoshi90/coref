@@ -25,7 +25,7 @@ import tokenization
 import modeling
 import optimization
 
-max_segment_len = 250
+max_segment_len = 230
 class CorefModel(object):
   def __init__(self, config):
     self.config = config
@@ -480,8 +480,10 @@ class CorefModel(object):
     num_pairs = util.shape(paired_segments, 0)
     to_unique_idxs = tf.cond(num_pairs > 1, lambda :( same_seg_mask * (to_unique_idxs - 1))[c:], lambda : to_unique_idxs)
     same_seg_mask = tf.expand_dims(tf.reshape(tf.to_float(same_seg_mask), [k, c]), 2)[1:, :, :]
-    mention_span_reps = (1 - same_seg_mask) * tf.expand_dims(top_span_emb, 1)
-    antecedent_span_reps = (1 - same_seg_mask) * tf.gather(top_span_emb, top_antecedents[1:, :] - 1)
+    top_antecedent_emb =  tf.gather(top_span_emb, top_antecedents[1:, :] - 1)
+    top_span_emb = tf.expand_dims(top_span_emb, 1)
+    mention_span_reps = (1 - same_seg_mask) * top_span_emb
+    antecedent_span_reps = (1 - same_seg_mask) * top_antecedent_emb
     dim = util.shape(top_span_emb, -1)
     segment_distance = tf.cond(num_pairs > 1, lambda: segment_distance[c:], lambda : segment_distance)
     paired_segments = tf.cond(num_pairs > 1, lambda : paired_segments[1:, :], lambda: paired_segments)
@@ -515,6 +517,13 @@ class CorefModel(object):
     mention_span_reps += paired_mention_span_reps
     antecedent_span_reps += paired_antecedent_span_reps
     segment_distance = tf.cond(num_pairs > 1, lambda:tf.reshape(segment_distance, [k - 1, c]), lambda : tf.reshape(segment_distance, [k, c])[1:, :])
+    if self.config['combine_passes']:
+      with tf.variable_scope('mention_combine_pass'):
+        f = tf.sigmoid(util.projection(tf.concat([tf.tile(top_span_emb, [1,c,1]), mention_span_reps], -1), util.shape(top_span_emb, -1)))
+        mention_span_reps = f * top_span_emb + (1-f) * mention_span_reps
+      with tf.variable_scope('antecedent_combine_pass'):
+        f = tf.sigmoid(util.projection(tf.concat([top_antecedent_emb, antecedent_span_reps], -1), util.shape(top_antecedent_emb, -1)))
+        antecedent_span_reps = f * top_antecedent_emb + (1-f) * antecedent_span_reps
 
     return mention_span_reps, antecedent_span_reps, segment_distance
 
