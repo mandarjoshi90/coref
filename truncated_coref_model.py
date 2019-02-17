@@ -25,7 +25,7 @@ import tokenization
 import modeling
 import optimization
 
-max_segment_len = 230
+max_segment_len = 256
 class CorefModel(object):
   def __init__(self, config):
     self.config = config

@@ -16,7 +16,7 @@ import conll
 sys.path.append(os.path.abspath('../bert'))
 import tokenization
 
-max_segment_len = 230
+max_segment_len = 256
 
 class DocumentState(object):
   def __init__(self):
@@ -145,7 +145,7 @@ def cleanup_sentence(document_state, offset):
   row, first_subtoken_index, last_subtoken_index = None, None, None
   sub_token_index_in_sent = 0
   while sub_token_index_in_sent < len(document_state.text):
-    if document_state.text[sub_token_index_in_sent] in ['[CLS]', '[SEP]', '[unused1]', '[unused2]']:
+    if document_state.text[sub_token_index_in_sent] in ['[CLS]', '[SEP]'] or document_state.text[sub_token_index_in_sent].startswith('[unused'):
       sub_token_index_in_sent += 1
       continue
     first_subtoken_index = sub_token_index_in_sent + offset
@@ -181,11 +181,11 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
     document_state.assert_empty()
     document_state.doc_key = conll.get_doc_key(begin_document_match.group(1), begin_document_match.group(2))
     document_state.current_sentence_info = []
-    document_state.text += ['[CLS]'] #, '[unused1]']
-    document_state.current_sentence_info += ['[SPL]'] #, '[SPL]']
-    document_state.text_speakers += ['[SPL]'] #, '[SPL]']
-    document_state.para_token = '[unused2]'
     document_state.current_sentence_index = 0
+    # document_state.text += ['[CLS]'] #, '[unused1]']
+    document_state.text += ['[CLS]', '[unused' + str(1) + ']'] #, '[unused1]']
+    document_state.current_sentence_info += ['[SPL]', '[SPL]'] #, '[SPL]']
+    document_state.text_speakers += ['[SPL]', '[SPL]'] #, '[SPL]']
     document_state.sentence_map = []
     return None
   elif line.startswith("#end document"):
@@ -225,10 +225,10 @@ def handle_line(line, document_state, language, labels, stats, tokenizer):
         document_state.sentences[-1].append('[SEP]')
         document_state.speakers[-1].append('[SPL]')
         document_state.sentence_map.append(document_state.current_sentence_index - 1)
-        document_state.text = ['[CLS]'] + document_state.text #+ ['[SEP]']
-        document_state.current_sentence_info = ['[SPL]'] + document_state.current_sentence_info #+ ['[SPL]']
-        document_state.text_speakers = ['[SPL]'] + document_state.text_speakers #+ ['[SPL]']
-        document_state.para_token = '[unused' + str(3 - int(document_state.para_token[-2])) + ']'
+        segment_num = len(document_state.sentences) + 1
+        document_state.text = ['[CLS]', '[unused' + str(segment_num) + ']'] + document_state.text #+ ['[SEP]']
+        document_state.current_sentence_info = ['[SPL]', '[SPL]'] + document_state.current_sentence_info #+ ['[SPL]']
+        document_state.text_speakers = ['[SPL]', '[SPL]'] + document_state.text_speakers #+ ['[SPL]']
         document_state.sentences.append([])
         document_state.speakers.append([])
         previous_text = document_state.sentences[-1]
