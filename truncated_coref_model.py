@@ -347,14 +347,16 @@ class CorefModel(object):
     top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets = self.coarse_to_fine_pruning(top_span_emb, top_span_mention_scores, c)
     num_segs, seg_len = util.shape(input_ids, 0), util.shape(input_ids, 1)
     word_segments = tf.tile(tf.expand_dims(tf.range(0, num_segs), 1), [1, seg_len])
-    mention_segments = tf.expand_dims(tf.gather(word_segments, top_span_starts), 1)
-    antecedent_segments = tf.expand_dims(tf.gather(word_segments, tf.gather(top_span_starts, top_antecedents)), 1)
-    segment_distance = tf.clip_by_value(mention_segments - antecedent_segments, 0, self.config['max_training_sentences'] - 1) if self.config['use_segment_distance'] else None
+    flat_word_segments = tf.boolean_mask(tf.reshape(word_segments, [-1]), tf.reshape(input_mask, [-1]))
+    mention_segments = tf.expand_dims(tf.gather(flat_word_segments, top_span_starts), 1) # [k, 1]
+    antecedent_segments = tf.gather(flat_word_segments, tf.gather(top_span_starts, top_antecedents)) #[k, c]
+    # mention_segments = tf.Print(mention_segments, [tf.shape(mention_segments),  tf.shape(antecedent_segments), tf.shape(top_antecedents)], 'seg')
+    segment_distance = tf.clip_by_value(mention_segments - antecedent_segments, 0, self.config['max_training_sentences'] - 1) if self.config['use_segment_distance'] else None #[k, c]
     if self.config['fine_grained']:
       for i in range(self.config["coref_depth"]):
         with tf.variable_scope("coref_layer", reuse=(i > 0)):
           top_antecedent_emb = tf.gather(top_span_emb, top_antecedents) # [k, c, emb]
-          top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb) # [k, c]
+          top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, segment_distance) # [k, c]
           top_antecedent_weights = tf.nn.softmax(tf.concat([dummy_scores, top_antecedent_scores], 1)) # [k, c + 1]
           top_antecedent_emb = tf.concat([tf.expand_dims(top_span_emb, 1), top_antecedent_emb], 1) # [k, c + 1, emb]
           attended_span_emb = tf.reduce_sum(tf.expand_dims(top_antecedent_weights, 2) * top_antecedent_emb, 1) # [k, emb]
@@ -363,7 +365,6 @@ class CorefModel(object):
             top_span_emb = f * attended_span_emb + (1 - f) * top_span_emb # [k, emb]
     else:
         top_antecedent_scores = top_fast_antecedent_scores
-      
 
     top_antecedent_scores = tf.concat([dummy_scores, top_antecedent_scores], 1) # [k, c + 1]
     # top_antecedent_scores = tf.Print(top_antecedent_scores, [tf.shape(context_outputs), tf.shape(candidate_ends), top_antecedent_scores, tf.shape(top_antecedent_scores)], 'top_antecedent_scores')
