@@ -166,7 +166,7 @@ class CorefModel(object):
     for i, (sentence, speaker) in enumerate(zip(sentences, speakers)):
       sent_input_ids = self.tokenizer.convert_tokens_to_ids(sentence)
       sent_input_mask = [1] * len(sent_input_ids)
-      sent_speaker_ids = [speaker_dict.get(s, 0) for s in speaker]
+      sent_speaker_ids = [speaker_dict.get(s, 3) for s in speaker]
       while len(sent_input_ids) < max_sentence_length:
           sent_input_ids.append(0)
           sent_input_mask.append(0)
@@ -183,7 +183,7 @@ class CorefModel(object):
     # speaker_ids = np.array([speaker_dict[s] for s in speakers])
 
     doc_key = example["doc_key"]
-    genre = self.genres[doc_key[:2]]
+    genre = self.genres.get(doc_key[:2], 0)
 
     gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)
     example_tensors = (input_ids, input_mask,  text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map)
