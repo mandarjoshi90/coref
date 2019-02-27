@@ -25,7 +25,7 @@ if __name__ == "__main__":
   saver = tf.train.Saver()
 
   log_dir = config["log_dir"]
-  max_steps = config['num_epochs'] * 2802
+  max_steps = config['num_epochs'] * config['num_docs']
   writer = tf.summary.FileWriter(log_dir, flush_secs=20)
 
   max_f1 = 0

@@ -24,12 +24,14 @@ sys.path.append(os.path.abspath('../bert'))
 import tokenization
 import modeling
 import optimization
-max_segment_len = 230
 class CorefModel(object):
   def __init__(self, config):
     self.config = config
+    self.max_segment_len = config['max_segment_len']
     self.max_span_width = config["max_span_width"]
     self.genres = { g:i for i,g in enumerate(config["genres"]) }
+    self.subtoken_maps = {}
+    self.gold = {}
     self.eval_data = None # Load eval data lazily.
     self.bert_config = modeling.BertConfig.from_json_file(config["bert_config_file"])
     self.tokenizer = tokenization.FullTokenizer(
@@ -65,13 +67,13 @@ class CorefModel(object):
       init_string = ""
       if var.name in initialized_variable_names:
         init_string = ", *INIT_FROM_CKPT*"
-      tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
-                      init_string)
-      # print("  name = %s, shape = %s%s", var.name, var.shape,
+      # tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                       # init_string)
+      print("  name = %s, shape = %s%s", var.name, var.shape,
+                      init_string)
 
     num_train_steps = int(
-                    2802 * self.config['num_epochs'])
+                    self.config['num_docs'] * self.config['num_epochs'])
     num_warmup_steps = int(num_train_steps * 0.1)
     self.global_step = tf.train.get_or_create_global_step()
     #self.global_step = tf.Variable(0, name="global_step", trainable=False)
@@ -159,7 +161,7 @@ class CorefModel(object):
     sentence_map = example['sentence_map']
 
 
-    max_sentence_length = max_segment_len #270 #max(len(s) for s in sentences)
+    max_sentence_length = self.max_segment_len
     text_len = np.array([len(s) for s in sentences])
 
     input_ids, input_mask, speaker_ids = [], [], []
@@ -183,6 +185,8 @@ class CorefModel(object):
     # speaker_ids = np.array([speaker_dict[s] for s in speakers])
 
     doc_key = example["doc_key"]
+    self.subtoken_maps[doc_key] = example["subtoken_map"]
+    self.gold[doc_key] = example["clusters"]
     genre = self.genres.get(doc_key[:2], 0)
 
     gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)
@@ -795,7 +799,7 @@ class CorefModel(object):
       # for key in doc_keys:
         # f.write(key + '\n')
     # print(global_step, len(losses), sum(losses) / len(losses))
-    # conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
+    # conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, self.subtoken_maps, official_stdout )
     # average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
     # summary_dict["Average F1 (conll)"] = average_f1
     # print("Average F1 (conll): {:.2f}%".format(average_f1))
