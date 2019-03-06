@@ -27,17 +27,20 @@ import optimization
 class CorefModel(object):
   def __init__(self, config):
     self.config = config
+    self.subtoken_maps = {}
     self.max_segment_len = config['max_segment_len']
     self.max_span_width = config["max_span_width"]
     self.genres = { g:i for i,g in enumerate(config["genres"]) }
-    self.subtoken_maps = {}
-    self.gold = {}
     self.eval_data = None # Load eval data lazily.
     self.bert_config = modeling.BertConfig.from_json_file(config["bert_config_file"])
+    self.sep = 102
+    self.cls = 101
     self.tokenizer = tokenization.FullTokenizer(
                 vocab_file=config['vocab_file'], do_lower_case=False)
 
     input_props = []
+    input_props.append((tf.int32, [None, None])) # input_ids.
+    input_props.append((tf.int32, [None, None])) # input_mask
     input_props.append((tf.int32, [None, None])) # input_ids.
     input_props.append((tf.int32, [None, None])) # input_mask
     input_props.append((tf.int32, [None])) # Text lengths.
@@ -161,48 +164,66 @@ class CorefModel(object):
     sentence_map = example['sentence_map']
 
 
-    max_sentence_length = self.max_segment_len
+    max_sentence_length = self.max_segment_len #270 #max(len(s) for s in sentences)
     text_len = np.array([len(s) for s in sentences])
 
-    input_ids, input_mask, speaker_ids = [], [], []
+    input_ids, input_mask, speaker_ids, prev_overlap = [], [], [], []
+    overlap_ids, overlap_mask = [], []
+    half = self.max_segment_len // 2
+    prev_tokens_per_seg = []
     for i, (sentence, speaker) in enumerate(zip(sentences, speakers)):
+      prev_tokens_per_seg += [len(prev_overlap)]
+      overlap_words = ['[CLS]'] + prev_overlap + sentence[:half] + ['[SEP]']
+      prev_overlap = sentence[half:]
+      sentence = ['[CLS]'] + sentence + ['[SEP]']
       sent_input_ids = self.tokenizer.convert_tokens_to_ids(sentence)
       sent_input_mask = [1] * len(sent_input_ids)
-      sent_speaker_ids = [speaker_dict.get(s, 3) for s in speaker]
+      sent_speaker_ids = [speaker_dict.get(s, 0) for s in ['##'] + speaker + ['##']]
       while len(sent_input_ids) < max_sentence_length:
           sent_input_ids.append(0)
           sent_input_mask.append(0)
           sent_speaker_ids.append(0)
+      overlap_input_ids = self.tokenizer.convert_tokens_to_ids(overlap_words)
+      overlap_input_mask = [1] * len(overlap_input_ids)
+      while len(overlap_input_ids) < max_sentence_length:
+        overlap_input_ids.append(0)
+        overlap_input_mask.append(0)
       input_ids.append(sent_input_ids)
       speaker_ids.append(sent_speaker_ids)
       input_mask.append(sent_input_mask)
+      overlap_ids.append(overlap_input_ids)
+      overlap_mask.append(overlap_input_mask)
+    overlap_words = ['[CLS]'] + prev_overlap + ['[SEP]']
+    overlap_input_ids = self.tokenizer.convert_tokens_to_ids(overlap_words)
+    overlap_input_mask = [1] * len(overlap_input_ids)
+    prev_tokens_per_seg += [len(prev_overlap)]
+    while len(overlap_input_ids) < max_sentence_length:
+      overlap_input_ids.append(0)
+      overlap_input_mask.append(0)
+    overlap_ids.append(overlap_input_ids)
+    overlap_mask.append(overlap_input_mask)
     input_ids = np.array(input_ids)
     input_mask = np.array(input_mask)
     speaker_ids = np.array(speaker_ids)
-    assert num_words == np.sum(input_mask), (num_words, np.sum(input_mask))
+    overlap_ids = np.array(overlap_ids)
+    overlap_mask = np.array(overlap_mask)
+    assert num_words == (np.sum(input_mask) - 2*np.shape(input_mask)[0]), (num_words, np.sum(input_mask))
+    assert num_words == (np.sum(overlap_mask) - 2*np.shape(overlap_mask)[0]), (num_words, np.sum(overlap_mask), np.shape(overlap_mask))
 
-    # speaker_dict = { s:i for i,s in enumerate(set(speakers)) }
-    # speaker_ids = np.array([speaker_dict[s] for s in speakers])
 
     doc_key = example["doc_key"]
     self.subtoken_maps[doc_key] = example["subtoken_map"]
-    self.gold[doc_key] = example["clusters"]
-    genre = self.genres.get(doc_key[:2], 0)
+    genre = self.genres[doc_key[:2]]
 
     gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)
-    example_tensors = (input_ids, input_mask,  text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map)
+    example_tensors = (input_ids, input_mask, overlap_ids, overlap_mask,  text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map)
 
     if is_training and len(sentences) > self.config["max_training_sentences"]:
-      if self.config['single_example']:
-        return self.truncate_example(*example_tensors)
-      else:
-        offsets = range(self.config['max_training_sentences'], len(sentences), self.config['max_training_sentences'])
-        tensor_list = [self.truncate_example(*(example_tensors + (offset,))) for offset in offsets]
-        return tensor_list
+      return self.truncate_example(* (example_tensors + (prev_tokens_per_seg, )))
     else:
       return example_tensors
 
-  def truncate_example(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, sentence_offset=None):
+  def truncate_example(self, input_ids, input_mask, overlap_ids, overlap_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, prev_tokens_per_seg, sentence_offset=None):
     # print('fffffffffffffffffffffffff')
     max_training_sentences = self.config["max_training_sentences"]
     num_sentences = input_ids.shape[0]
@@ -213,9 +234,18 @@ class CorefModel(object):
     num_words = text_len[sentence_offset:sentence_offset + max_training_sentences].sum()
     input_ids = input_ids[sentence_offset:sentence_offset + max_training_sentences, :]
     input_mask = input_mask[sentence_offset:sentence_offset + max_training_sentences, :]
+    overlap_ids = overlap_ids[sentence_offset:sentence_offset + max_training_sentences + 1, :]
+    overlap_mask = overlap_mask[sentence_offset:sentence_offset + max_training_sentences + 1, :]
+    overlap_ids[-1, 1 + prev_tokens_per_seg[sentence_offset + max_training_sentences]] = self.sep
+    overlap_ids[-1, 2 + prev_tokens_per_seg[sentence_offset + max_training_sentences]:] = 0
+    # print(overlap_mask.sum(1))
+    overlap_mask[-1, 2 + prev_tokens_per_seg[sentence_offset + max_training_sentences]:] = 0
+    overlap_mask[0, 1: 1 + prev_tokens_per_seg[sentence_offset ]] = 0
+    # print(overlap_mask.sum(1))
+    assert num_words == overlap_mask.sum() - 2 * np.shape(overlap_ids)[0], (num_words, overlap_mask.sum(), text_len)
     speaker_ids = speaker_ids[sentence_offset:sentence_offset + max_training_sentences, :]
     # speaker_ids = speaker_ids[word_offset: word_offset + num_words]
-    text_len = text_len[sentence_offset:sentence_offset + max_training_sentences]
+    text_len = text_len[sentence_offset:sentence_offset + max_training_sentences] 
 
     sentence_map = sentence_map[word_offset: word_offset + num_words]
     gold_spans = np.logical_and(gold_ends >= word_offset, gold_starts < word_offset + num_words)
@@ -223,7 +253,7 @@ class CorefModel(object):
     gold_ends = gold_ends[gold_spans] - word_offset
     cluster_ids = cluster_ids[gold_spans]
 
-    return input_ids, input_mask, text_len, speaker_ids, genre, is_training,  gold_starts, gold_ends, cluster_ids, sentence_map
+    return input_ids, input_mask, overlap_ids, overlap_mask, text_len, speaker_ids, genre, is_training,  gold_starts, gold_ends, cluster_ids, sentence_map
 
   def get_candidate_labels(self, candidate_starts, candidate_ends, labeled_starts, labeled_ends, labels):
     same_start = tf.equal(tf.expand_dims(labeled_starts, 1), tf.expand_dims(candidate_starts, 0)) # [num_labeled, num_candidates]
@@ -256,8 +286,19 @@ class CorefModel(object):
     top_antecedent_offsets = util.batch_gather(antecedent_offsets, top_antecedents) # [k, c]
     return top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets
 
+  def combine_passes(self, original_doc, input_ids, input_mask, overlap_doc, overlap_ids, overlap_mask):
+    overlap_mask, input_mask = tf.equal(overlap_mask, 1), tf.equal(input_mask, 1)
+    org_content_mask = tf.logical_and(input_mask, tf.logical_and(tf.not_equal(input_ids, self.cls), tf.not_equal(input_ids, self.sep)))
+    overlap_content_mask = tf.logical_and(overlap_mask, tf.logical_and(tf.not_equal(overlap_ids, self.cls), tf.not_equal(overlap_ids, self.sep)))
+    flat_org_doc = self.flatten_emb_by_sentence(original_doc, org_content_mask)
+    flat_overlap_doc = self.flatten_emb_by_sentence(overlap_doc, overlap_content_mask)
+    with tf.variable_scope("combo"):
+      f = tf.sigmoid(util.projection(tf.concat([flat_org_doc, flat_overlap_doc], -1), util.shape(flat_org_doc, -1))) # [n, emb]
+      combo = f * flat_org_doc + (1 - f) * flat_overlap_doc
+    return combo, org_content_mask
 
-  def get_predictions_and_loss(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map):
+
+  def get_predictions_and_loss(self, input_ids, input_mask, overlap_ids, overlap_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map):
     model = modeling.BertModel(
       config=self.bert_config,
       is_training=is_training,
@@ -266,30 +307,29 @@ class CorefModel(object):
       # use_tpu is False
       use_one_hot_embeddings=False,
       scope='bert')
-    all_encoder_layers = model.get_all_encoder_layers()
-    # mention_doc = all_encoder_layers[-2]
-    # antecedent_doc = all_encoder_layers[-1]
-    mention_doc = model.get_sequence_output()
-    # context_outputs = model.get_sequence_output()
+    original_doc = model.get_sequence_output()
+    model = modeling.BertModel(
+      config=self.bert_config,
+      is_training=is_training,
+      input_ids=overlap_ids,
+      input_mask=overlap_mask,
+      # use_tpu is False
+      use_one_hot_embeddings=False,
+      scope='bert')
+    overlap_doc = model.get_sequence_output()
 
     self.dropout = self.get_dropout(self.config["dropout_rate"], is_training)
 
-    num_sentences = tf.shape(mention_doc)[0]
-    max_sentence_length = tf.shape(mention_doc)[1]
-    # context_outputs = tf.nn.dropout(context_outputs, self.lexical_dropout) # [num_sentences, max_sentence_length, emb]
-    # text_len_mask = tf.sequence_mask(text_len, maxlen=max_sentence_length) # [num_sentence, max_sentence_length]
-    mention_doc = self.flatten_emb_by_sentence(mention_doc, input_mask)
-    # antecedent_doc = self.flatten_emb_by_sentence(antecedent_doc, input_mask)
-    # antecedent_doc = tf.Print(antecedent_doc, [tf.shape(antecedent_doc), tf.shape(mention_doc)], 'shapes')
+    num_sentences = tf.shape(input_ids)[0]
+    max_sentence_length = tf.shape(input_mask)[1] - 2
+    mention_doc, org_content_mask = self.combine_passes(original_doc, input_ids, input_mask, overlap_doc, overlap_ids, overlap_mask)
+
     num_words = util.shape(mention_doc, 0)
     antecedent_doc = mention_doc
 
 
     # mask out cross-sentence candidates
-    # sentence_indices = tf.tile(tf.expand_dims(tf.range(num_sentences), 1), [1, max_sentence_length]) # [num_sentences, max_sentence_length]
-    # flattened_sentence_indices = self.flatten_emb_by_sentence(sentence_indices, input_mask) # [num_words]
     flattened_sentence_indices = sentence_map
-    # flattened_head_emb = self.flatten_emb_by_sentence(head_emb, text_len_mask) # [num_words]
 
     candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1), [1, self.max_span_width]) # [num_words, max_span_width]
     candidate_ends = candidate_starts + tf.expand_dims(tf.range(self.max_span_width), 0) # [num_words, max_span_width]
@@ -305,11 +345,7 @@ class CorefModel(object):
 
     # compute span embeddings -- don't need this
     candidate_span_emb = self.get_span_emb(mention_doc, mention_doc, candidate_starts, candidate_ends) # [num_candidates, emb]
-    # conpute mention scores -- change this
-    # context_outputs = tf.Print(context_outputs, [tf.shape(context_outputs)], 'context_outputs')
     candidate_mention_scores =  self.get_mention_scores_old(candidate_span_emb, candidate_starts, candidate_ends)
-    #candidate_mention_scores =  self.get_mention_scores_bil(mention_doc, candidate_starts, candidate_ends) # [k, 1]
-    # candidate_mention_scores = tf.Print(candidate_mention_scores, [tf.shape(candidate_mention_scores)], 'cand mention scores')
     candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1) # [k]
     #candidate_mention_scores = tf.boolean_mask(candidate_mention_scores, flattened_candidate_mask) # [num_candidates]
 
@@ -337,7 +373,7 @@ class CorefModel(object):
     # speaker_ids - tf.Print(speaker_ids, [tf.shape(speaker_ids)], 'spkid')
     # mention_doc - tf.Print(mention_doc, [tf.shape(mention_doc)], 'smd')
     if self.config['use_metadata']:
-      speaker_ids = self.flatten_emb_by_sentence(speaker_ids, input_mask)
+      speaker_ids = self.flatten_emb_by_sentence(speaker_ids, org_content_mask)
       top_span_speaker_ids = tf.gather(speaker_ids, top_span_starts) # [k]i
     else:
         top_span_speaker_ids = None
@@ -345,13 +381,10 @@ class CorefModel(object):
 
     # antecedent scores -- change this
     dummy_scores = tf.zeros([k, 1]) # [k, 1]
-    # top_span_starts = tf.Print(top_span_starts, [top_span_starts], 'top start')
-    # antecedent_score_fn = self.get_span_antecedent_scores if self.config['use_span_reps'] else self.get_antecedent_scores
-    # top_antecedent_scores, top_antecedents, top_antecedents_mask = antecedent_score_fn(mention_doc, antecedent_doc, top_span_starts, top_span_ends, top_span_mention_scores)
     top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets = self.coarse_to_fine_pruning(top_span_emb, top_span_mention_scores, c)
-    num_segs, seg_len = util.shape(input_ids, 0), util.shape(input_ids, 1)
-    word_segments = tf.tile(tf.expand_dims(tf.range(0, num_segs), 1), [1, seg_len])
-    flat_word_segments = tf.boolean_mask(tf.reshape(word_segments, [-1]), tf.reshape(input_mask, [-1]))
+    num_segs, seg_len = util.shape(org_content_mask, 0), util.shape(org_content_mask, 1)
+    word_segments = tf.reshape(tf.tile(tf.expand_dims(tf.range(0, num_segs), 1), [1, seg_len]), [-1])
+    flat_word_segments = tf.boolean_mask(word_segments, tf.reshape(org_content_mask, [-1]))
     mention_segments = tf.expand_dims(tf.gather(flat_word_segments, top_span_starts), 1) # [k, 1]
     antecedent_segments = tf.gather(flat_word_segments, tf.gather(top_span_starts, top_antecedents)) #[k, c]
     # mention_segments = tf.Print(mention_segments, [tf.shape(mention_segments),  tf.shape(antecedent_segments), tf.shape(top_antecedents)], 'seg')
@@ -369,6 +402,7 @@ class CorefModel(object):
             top_span_emb = f * attended_span_emb + (1 - f) * top_span_emb # [k, emb]
     else:
         top_antecedent_scores = top_fast_antecedent_scores
+      
 
     top_antecedent_scores = tf.concat([dummy_scores, top_antecedent_scores], 1) # [k, c + 1]
     # top_antecedent_scores = tf.Print(top_antecedent_scores, [tf.shape(context_outputs), tf.shape(candidate_ends), top_antecedent_scores, tf.shape(top_antecedent_scores)], 'top_antecedent_scores')
@@ -771,21 +805,19 @@ class CorefModel(object):
       num_words = sum(tensorized_example[2].sum() for tensorized_example, _ in self.eval_data)
       print("Loaded {} eval examples.".format(len(self.eval_data)))
 
-  def evaluate(self, session, global_step=None, official_stdout=False, keys=None):
+  def evaluate(self, session, global_step=None, official_stdout=False):
     self.load_eval_data()
 
     coref_predictions = {}
     coref_evaluator = metrics.CorefEvaluator()
     losses = []
     doc_keys = []
-    num_evaluated= 0
 
     for example_num, (tensorized_example, example) in enumerate(self.eval_data):
-      _, _, _, _, _, _, gold_starts, gold_ends, _, _ = tensorized_example
+      _, _, _, _, _, _, _, _, gold_starts, gold_ends, _, _ = tensorized_example
       feed_dict = {i:t for i,t in zip(self.input_tensors, tensorized_example)}
-      # if tensorized_example[0].shape[0] <= 9:
-      # if keys is not None and example['doc_key']  in keys:
-        # print('Skipping...', example['doc_key'], tensorized_example[0].shape)
+      # if tensorized_example[0].shape[0] <= 1:
+        # print('Skipping...', tensorized_example[0].shape)
         # continue
       doc_keys.append(example['doc_key'])
       loss, (candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores) = session.run([self.loss, self.predictions], feed_dict=feed_dict)
@@ -797,18 +829,18 @@ class CorefModel(object):
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
     summary_dict = {}
-    # with open('doc_keys_512.txt', 'w') as f:
+    # with open('doc_keys', 'w') as f:
       # for key in doc_keys:
         # f.write(key + '\n')
     # print(global_step, len(losses), sum(losses) / len(losses))
-    # conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, self.subtoken_maps, official_stdout )
-    # average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
-    # summary_dict["Average F1 (conll)"] = average_f1
-    # print("Average F1 (conll): {:.2f}%".format(average_f1))
+    conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, self.subtoken_maps, official_stdout)
+    average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
+    summary_dict["Average F1 (conll)"] = average_f1
+    print("Average F1 (conll): {:.2f}%".format(average_f1))
 
     p,r,f = coref_evaluator.get_prf()
     summary_dict["Average F1 (py)"] = f
-    print("Average F1 (py): {:.2f}% on {} docs".format(f * 100, len(doc_keys)))
+    print("Average F1 (py): {:.2f}%".format(f * 100))
     summary_dict["Average precision (py)"] = p
     print("Average precision (py): {:.2f}%".format(p * 100))
     summary_dict["Average recall (py)"] = r

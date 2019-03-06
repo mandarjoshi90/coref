@@ -9,6 +9,7 @@ import time
 import tensorflow as tf
 # import coref_model as cm
 import truncated_coref_model  as cm 
+#import overlap  as cm 
 import util
 import logging
 format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
