@@ -187,9 +187,9 @@ def skip(doc_key):
     # return True
   return False
 
-def minimize_partition(name, language, extension, labels, stats, tokenizer, seg_len):
-  input_path = "{}.{}.{}".format(name, language, extension)
-  output_path = "data/overlap/{}.{}.{}.jsonlines".format(name, language, seg_len)
+def minimize_partition(name, language, extension, labels, stats, tokenizer, seg_len, input_dir, output_dir):
+  input_path = "{}/{}.{}.{}".format(input_dir, name, language, extension)
+  output_path = "{}/{}.{}.{}.jsonlines".format(output_dir, name, language, seg_len)
   count = 0
   print("Minimizing {}".format(input_path))
   documents = []
@@ -213,24 +213,26 @@ def minimize_partition(name, language, extension, labels, stats, tokenizer, seg_
       count += 1
   print("Wrote {} documents to {}".format(count, output_path))
 
-def minimize_language(language, labels, stats, vocab_file, seg_len):
+def minimize_language(language, labels, stats, vocab_file, seg_len, input_dir, output_dir):
   do_lower_case = True if 'chinese' in vocab_file else False
   tokenizer = tokenization.FullTokenizer(
                 vocab_file=vocab_file, do_lower_case=do_lower_case)
-  minimize_partition("dev", language, "v4_gold_conll", labels, stats, tokenizer, seg_len)
-  minimize_partition("train", language, "v4_gold_conll", labels, stats, tokenizer, seg_len)
-  minimize_partition("test", language, "v4_gold_conll", labels, stats, tokenizer, seg_len)
+  minimize_partition("dev", language, "v4_gold_conll", labels, stats, tokenizer, seg_len, input_dir, output_dir)
+  minimize_partition("train", language, "v4_gold_conll", labels, stats, tokenizer, seg_len, input_dir, output_dir)
+  minimize_partition("test", language, "v4_gold_conll", labels, stats, tokenizer, seg_len, input_dir, output_dir)
 
 if __name__ == "__main__":
   vocab_file = sys.argv[1]
-  for seg_len in [384]:
-    labels = collections.defaultdict(set)
-    stats = collections.defaultdict(int)
-    minimize_language("english", labels, stats, vocab_file, seg_len)
+  input_dir = sys.argv[2]
+  output_dir = sys.argv[3]
+  labels = collections.defaultdict(set)
+  stats = collections.defaultdict(int)
+  for seg_len in [128]:
+    minimize_language("english", labels, stats, vocab_file, seg_len, input_dir, output_dir)
     # minimize_language("chinese", labels, stats, vocab_file, seg_len)
     # minimize_language("es", labels, stats, vocab_file, seg_len)
     # minimize_language("arabic", labels, stats, vocab_file, seg_len)
-    for k, v in labels.items():
-      print("{} = [{}]".format(k, ", ".join("\"{}\"".format(label) for label in v)))
-    for k, v in stats.items():
-      print("{} = {}".format(k, v))
+  for k, v in labels.items():
+    print("{} = [{}]".format(k, ", ".join("\"{}\"".format(label) for label in v)))
+  for k, v in stats.items():
+    print("{} = {}".format(k, v))
