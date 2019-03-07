@@ -13,9 +13,7 @@ import collections
 
 import util
 import conll
-sys.path.append(os.path.abspath('../bert'))
-import tokenization
-# max_segment_len = 410
+from bert import tokenization
 
 class DocumentState(object):
   def __init__(self, key):

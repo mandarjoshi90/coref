@@ -1,8 +1,7 @@
 import sys
 import json
 import os
-sys.path.append(os.path.abspath('../bert'))
-import tokenization
+from bert import tokenization
 
 def read_tsv(tsv_file):
     data = []

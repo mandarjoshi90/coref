@@ -15,6 +15,17 @@ import numpy as np
 import tensorflow as tf
 import pyhocon
 
+import independent
+import overlap
+
+
+def get_model(config):
+    if config['model_type'] == 'independent':
+        return independent.CorefModel(config)
+    if config['model_type'] == 'overlap':
+        return overlap.CorefModel(config)
+    else:
+        raise NotImplementedError('Undefined model type')
 
 def initialize_from_env():
   if "GPU" in os.environ:

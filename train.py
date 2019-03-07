@@ -7,9 +7,6 @@ import os
 import time
 
 import tensorflow as tf
-# import coref_model as cm
-import truncated_coref_model  as cm 
-#import overlap  as cm 
 import util
 import logging
 format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
@@ -22,7 +19,7 @@ if __name__ == "__main__":
   report_frequency = config["report_frequency"]
   eval_frequency = config["eval_frequency"]
 
-  model = cm.CorefModel(config)
+  model = util.get_model(config)
   saver = tf.train.Saver()
 
   log_dir = config["log_dir"]
