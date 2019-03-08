@@ -6,7 +6,6 @@ import sys
 import json
 
 import tensorflow as tf
-import truncated_coref_model  as cm
 import util
 
 if __name__ == "__main__":
@@ -19,7 +18,7 @@ if __name__ == "__main__":
   # Predictions will be written to this file in .jsonlines format.
   output_filename = sys.argv[3]
 
-  model = cm.CorefModel(config)
+  model = util.get_model(config)
   saver = tf.train.Saver()
 
   with tf.Session() as session:
