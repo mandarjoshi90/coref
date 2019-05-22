@@ -17,18 +17,23 @@ function logsumexp(x) {
     return Math.log(total) + a;
 }
 
-function set_mention_callbacks(hover_callbacks, unhover_callbacks, head_scores, mention_start, mention_end) {
-    var scores = [];
-    for (var token = mention_start; token <= mention_end; token++) {
-        scores.push(head_scores[token]);
-    }
-    var log_norm = logsumexp(scores);
+function set_mention_callbacks(hover_callbacks, unhover_callbacks, head_scores, mention_start, mention_end, value=0) {
+    //var scores = [];
+    //for (var token = mention_start; token <= mention_end; token++) {
+        //scores.push(head_scores[token]);
+    //}
+    var log_norm = 0; //logsumexp(scores);
 
     hover_callbacks.add(function() {
         var show_attention = $("#show-attention").is(":checked");
         for (var token = mention_start; token <= mention_end; token++) {
             var token_span = $("#t" + token);
-            token_span.css("font-weight", "normal");
+            var color = "black";
+            if (value == 1)
+                color = "blue";
+            else if (value  == 2)
+                color = "red"
+            token_span.css("font-weight", "normal").css("color", color);
             if (show_attention) {
                 var p = Math.exp(head_scores[token] - log_norm);
                 var r = Math.round(-36 * p + 255);
@@ -52,6 +57,34 @@ function set_mention_callbacks(hover_callbacks, unhover_callbacks, head_scores, 
         }
         $("#lrb" + mention_start).text("");
         $("#rrb" + mention_end).text("");
+    });
+}
+
+function render_diff_clusters(clusters_div, clusters_data, text, head_scores) {
+    clusters_div.empty();
+    $.each(clusters_data, function(i, cluster) {
+        var item = $("<li>")
+                .addClass("list-group-item")
+                .appendTo(clusters_div);
+
+        var hover_callbacks = $.Callbacks();
+        var unhover_callbacks = $.Callbacks();
+        $.each(cluster, function(j, mention) {
+            if (j != 0) {
+                $("<span>").html(", ").appendTo(item);
+            }
+            var mention_start = mention[0];
+            var mention_end = mention[1];
+            var val = mention[2];
+            console.log(mention);
+            set_mention_callbacks(hover_callbacks, unhover_callbacks, head_scores, mention_start, mention_end, val);
+            var mention_text = text.slice(mention_start, mention_end + 1).join(" ") ;
+            $("<span>")
+                .html(mention_text)
+                .appendTo(item);
+        });
+
+        item.hover(hover_callbacks.fire, unhover_callbacks.fire);
     });
 }
 
@@ -81,7 +114,7 @@ function render_predicted_clusters(clusters_div, clusters_data, text, head_score
     });
 }
 
-function render_top_spans(top_spans_div, top_spans_data, text, head_scores) {
+function render_top_spans(top_spans_div, top_spans_data, scores, text, head_scores) {
     top_spans_div.empty();
     $.each(top_spans_data, function(i, mention) {
         var item = $("<li>")
@@ -93,7 +126,7 @@ function render_top_spans(top_spans_div, top_spans_data, text, head_scores) {
         var mention_start = mention[0];
         var mention_end = mention[1];
         set_mention_callbacks(hover_callbacks, unhover_callbacks, head_scores, mention_start, mention_end);
-        var mention_text = text.slice(mention_start, mention_end + 1).join(" ");
+        var mention_text = text.slice(mention_start, mention_end + 1).join(" "); //+ ": " + scores[i];
         $("<span>")
             .html(mention_text)
             .appendTo(item);
@@ -129,7 +162,9 @@ function load_example(lines) {
         $("<span>").text(" ").appendTo(text_div);
     });
     render_predicted_clusters($("#predicted-clusters"), data.predicted_clusters, text, data.head_scores);
-    render_top_spans($("#top-spans"), data.top_spans, text, data.head_scores);
+    render_diff_clusters($("#annotated-clusters"), data.pred_annotations, text, data.head_scores);
+    render_predicted_clusters($("#clusters"), data.clusters, text, data.head_scores);
+    render_top_spans($("#top-spans"), data.top_spans, data.top_span_mention_scores, text, data.head_scores);
 
     if (example_num > 0) {
         $("#back-btn").click(function() {
