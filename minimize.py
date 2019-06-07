@@ -27,6 +27,7 @@ class DocumentState(object):
     self.subtoken_map = []
     self.segment_subtoken_map = []
     self.sentence_map = []
+    self.pronouns = []
     self.clusters = collections.defaultdict(list)
     self.coref_stacks = collections.defaultdict(list)
     self.speakers = []
@@ -35,6 +36,7 @@ class DocumentState(object):
   def finalize(self):
     # finalized: segments, segment_subtoken_map
     # populate speakers from info
+    subtoken_idx = 0
     for segment in self.segment_info:
       speakers = []
       for i, tok_info in enumerate(segment):
@@ -44,6 +46,9 @@ class DocumentState(object):
           speakers.append(speakers[-1])
         else:
           speakers.append(tok_info[9])
+          if tok_info[4] == 'PRP':
+            self.pronouns.append(subtoken_idx)
+        subtoken_idx += 1
       self.speakers += [speakers]
     # populate sentence map
 
@@ -101,7 +106,8 @@ class DocumentState(object):
       "ner": [],
       "clusters": merged_clusters,
       'sentence_map':sentence_map,
-      "subtoken_map": subtoken_map
+      "subtoken_map": subtoken_map,
+      'pronouns': self.pronouns
     }
 
 
@@ -223,7 +229,7 @@ if __name__ == "__main__":
   output_dir = sys.argv[3]
   labels = collections.defaultdict(set)
   stats = collections.defaultdict(int)
-  for seg_len in [128]:
+  for seg_len in [256]:
     minimize_language("english", labels, stats, vocab_file, seg_len, input_dir, output_dir)
     # minimize_language("chinese", labels, stats, vocab_file, seg_len)
     # minimize_language("es", labels, stats, vocab_file, seg_len)
