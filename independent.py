@@ -23,6 +23,8 @@ import metrics
 import optimization
 from bert import tokenization
 from bert import modeling
+from pytorch_to_tf import load_from_pytorch_checkpoint
+
 
 class CorefModel(object):
   def __init__(self, config):
@@ -59,7 +61,9 @@ class CorefModel(object):
     # bert stuff
     tvars = tf.trainable_variables()
     assignment_map, initialized_variable_names = modeling.get_assignment_map_from_checkpoint(tvars, config['init_checkpoint'])
-    tf.train.init_from_checkpoint(config['init_checkpoint'], assignment_map)
+    init_from_checkpoint = tf.init_from_checkpoint if config['init_checkpoint'].endswith('ckpt') else load_from_pytorch_checkpoint
+    #tf.train.init_from_checkpoint(config['init_checkpoint'], assignment_map)
+    init_from_checkpoint(config['pytorch_init_checkpoint'], assignment_map)
     print("**** Trainable Variables ****")
     for var in tvars:
       init_string = ""
@@ -179,7 +183,7 @@ class CorefModel(object):
     # speaker_ids = np.array([speaker_dict[s] for s in speakers])
 
     doc_key = example["doc_key"]
-    self.subtoken_maps[doc_key] = example["subtoken_map"]
+    self.subtoken_maps[doc_key] = example.get("subtoken_map", None)
     self.gold[doc_key] = example["clusters"]
     genre = self.genres.get(doc_key[:2], 0)
 
@@ -551,9 +555,9 @@ class CorefModel(object):
       _, _, _, _, _, _, gold_starts, gold_ends, _, _ = tensorized_example
       feed_dict = {i:t for i,t in zip(self.input_tensors, tensorized_example)}
       # if tensorized_example[0].shape[0] <= 9:
-      # if keys is not None and example['doc_key']  in keys:
+      if keys is not None and example['doc_key'] not in keys:
         # print('Skipping...', example['doc_key'], tensorized_example[0].shape)
-        # continue
+        continue
       doc_keys.append(example['doc_key'])
       loss, (candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores) = session.run([self.loss, self.predictions], feed_dict=feed_dict)
       # losses.append(session.run(self.loss, feed_dict=feed_dict))

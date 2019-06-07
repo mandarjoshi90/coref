@@ -17,13 +17,15 @@ import pyhocon
 
 import independent
 import overlap
-
+import gold_mentions
 
 def get_model(config):
     if config['model_type'] == 'independent':
         return independent.CorefModel(config)
-    if config['model_type'] == 'overlap':
+    elif config['model_type'] == 'overlap':
         return overlap.CorefModel(config)
+    elif config['model_type'] == 'gold_mentions':
+        return gold_mentions.CorefModel(config)
     else:
         raise NotImplementedError('Undefined model type')
 
