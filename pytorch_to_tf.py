@@ -28,7 +28,9 @@ def load_from_pytorch_checkpoint(checkpoint, assignment_map):
         store_vars = vs._get_default_variable_store()._vars
         var = store_vars.get(name, None)
         assert var is not None
-        assert name in pt_model_with_tf_keys
+        if name not in pt_model_with_tf_keys:
+            print('WARNING:', name, 'not found in original model.')
+            continue
         array = pt_model_with_tf_keys[name].cpu().numpy()
         if name.endswith('kernel'):
             array = array.transpose()
