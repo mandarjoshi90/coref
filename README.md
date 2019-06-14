@@ -18,9 +18,9 @@ We apply BERT to coreference resolution, achieving a new state of the art on the
 
 * Experiment configurations are found in `experiments.conf`
 * Choose an experiment that you would like to run, e.g. `best`
-* Training: `GPU=0 python train.py <experiment>`
-* Results are stored in the `logs` directory and can be viewed via TensorBoard.
-* Evaluation: `python evaluate.py <experiment>`
+* Training: `PYTHONPATH=<span_bert_dir> GPU=0 python train.py <experiment>`
+* Results are stored in the `log_root` directory (see `experiments.conf`) and can be viewed via TensorBoard.
+* Evaluation: `PYTHONPATH=<span_bert_dir> python evaluate.py <experiment>`
 
 
 ## Batched Prediction Instructions
@@ -40,12 +40,23 @@ We apply BERT to coreference resolution, achieving a new state of the art on the
 * Run `python predict.py <experiment> <input_file> <output_file>`, which outputs the input jsonlines with predicted clusters.
 
 ## Tune Hyperparameters
-* `python tune_models.py configs`: This generates multiple configs for tuning (BERT and task) learning rates, embedding models, and `max_segment_len`. This modifies `experiments.conf`. Use `--trial` to print to stdout instead.
-* `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a reg exp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "*sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
-* `python tune_models.py run`: This launches jobs from torun.txt on the slurm cluster.
+* `python tune.py  --generate_configs --data_dir <coref_data_dir>`: This generates multiple configs for tuning (BERT and task) learning rates, embedding models, and `max_segment_len`. This modifies `experiments.conf`. Use `--trial` to print to stdout instead.
+* `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a regexp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
+* `python tune_models.py --data_dir <coref_data_dir> --run_jobs`: This launches jobs from torun.txt on the slurm cluster.
 
-## Important Hyperpameters
+## Important Config Keys
+* `log_root`: This is where all models and logs are stored.
 * `bert_learning_rate`: The learning rate for the BERT parameters. Typically, `1e-5` and `2e-5` work well.
 * `task_learning_rate`: The learning rate for the other parameters. Typically, LRs between `0.0001` to `0.0003` work well.
 * `init_checkpoint`: The checkpoint file from which BERT parameters are initialized. Both TF and Pytorch checkpoints work as long as they use the same BERT architecture. Use `*ckpt` files for TF and `*pt` for Pytorch.
-* `max_segment_len`: The maximum size of the BERT segment. 
+* `max_segment_len`: The maximum size of the BERT segment.
+
+## Notes
+* The current config runs the Independent model.
+* I've made minor modifications to `current_models.py` copied from Danqi's bert-eval repo. In particular, I've added paths to all four google models. Please double check these before running `tune.py`.
+* When running on test, change the `eval_path` and `conll_eval_path` from dev to test.
+* The current best models are in `<coref_dir>/current_best`
+* The `model_dir` inside the `log_root` contains `stdout.log`. Check the `max_f1` after 57000 steps. For example
+``
+2019-06-12 12:43:11,926 - INFO - __main__ - [57000] evaL_f1=0.7694, max_f1=0.7697
+``
