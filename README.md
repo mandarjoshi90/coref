@@ -11,7 +11,7 @@ We apply BERT to coreference resolution, achieving a new state of the art on the
 ## Getting Started
 * Install python (either 2 or 3) requirements: `pip install -r requirements.txt`
   * There are 3 platform-dependent ways to build custom TensorFlow kernels. Please comment/uncomment the appropriate lines in the script.
-* Preprocessing
+* Preprocessing: You don't need to do this. Everything is already in `/checkpoint/mandarj/coref_data`
   * `python minimize.py <bert_vocab_file> <ontonotes_data_dir> <output_dir> <do_lower_case>`: Ensure that `<do_lower_case>` is `true` for uncased models and `false` for cased models. The `<output_dir>` should contain `*.english.v4_gold_conll` files. See the [e2e-coref](https://github.com/kentonl/e2e-coref/tree/e2e) for further details.
 
 ## Training Instructions
