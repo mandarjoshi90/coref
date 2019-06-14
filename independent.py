@@ -79,7 +79,8 @@ class CorefModel(object):
     self.global_step = tf.train.get_or_create_global_step()
     self.train_op = optimization.create_custom_optimizer(tvars,
                       self.loss, self.config['bert_learning_rate'], self.config['task_learning_rate'],
-                      num_train_steps, num_warmup_steps, False, self.global_step, freeze=-1)
+                      num_train_steps, num_warmup_steps, False, self.global_step, freeze=-1,
+                      task_opt=self.config['task_optimizer'], eps=config['adam_eps'])
 
   def start_enqueue_thread(self, session):
     with open(self.config["train_path"]) as f:
@@ -178,8 +179,6 @@ class CorefModel(object):
     speaker_ids = np.array(speaker_ids)
     assert num_words == np.sum(input_mask), (num_words, np.sum(input_mask))
 
-    # speaker_dict = { s:i for i,s in enumerate(set(speakers)) }
-    # speaker_ids = np.array([speaker_dict[s] for s in speakers])
 
     doc_key = example["doc_key"]
     self.subtoken_maps[doc_key] = example.get("subtoken_map", None)
@@ -241,7 +240,7 @@ class CorefModel(object):
     fast_antecedent_scores += self.get_fast_antecedent_scores(top_span_emb) # [k, k]
     if self.config['use_prior']:
       antecedent_distance_buckets = self.bucket_distance(antecedent_offsets) # [k, c]
-      distance_scores = util.projection(tf.nn.dropout(tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]]), self.dropout), 1, initializer=tf.truncated_normal_initializer(stddev=0.02)) #[10, 1]
+      distance_scores = util.projection(tf.nn.dropout(tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)), self.dropout), 1, initializer=tf.truncated_normal_initializer(stddev=0.02)) #[10, 1]
       antecedent_distance_scores = tf.gather(tf.squeeze(distance_scores, 1), antecedent_distance_buckets) # [k, c]
       fast_antecedent_scores += antecedent_distance_scores
 
@@ -307,7 +306,7 @@ class CorefModel(object):
     top_span_emb = tf.gather(candidate_span_emb, top_span_indices) # [k, emb]
     top_span_cluster_ids = tf.gather(candidate_cluster_ids, top_span_indices) # [k]
     top_span_mention_scores = tf.gather(candidate_mention_scores, top_span_indices) # [k]
-    genre_emb = tf.gather(tf.get_variable("genre_embeddings", [len(self.genres), self.config["feature_size"]]), genre) # [emb]
+    genre_emb = tf.gather(tf.get_variable("genre_embeddings", [len(self.genres), self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)), genre) # [emb]
     if self.config['use_metadata']:
       speaker_ids = self.flatten_emb_by_sentence(speaker_ids, input_mask)
       top_span_speaker_ids = tf.gather(speaker_ids, top_span_starts) # [k]i
@@ -365,7 +364,7 @@ class CorefModel(object):
 
     if self.config["use_features"]:
       span_width_index = span_width - 1 # [k]
-      span_width_emb = tf.gather(tf.get_variable("span_width_embeddings", [self.config["max_span_width"], self.config["feature_size"]]), span_width_index) # [k, emb]
+      span_width_emb = tf.gather(tf.get_variable("span_width_embeddings", [self.config["max_span_width"], self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)), span_width_index) # [k, emb]
       span_width_emb = tf.nn.dropout(span_width_emb, self.dropout)
       span_emb_list.append(span_width_emb)
 
@@ -382,7 +381,7 @@ class CorefModel(object):
       with tf.variable_scope("mention_scores"):
         span_scores = util.ffnn(span_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # [k, 1]
       if self.config['use_prior']:
-        span_width_emb = tf.get_variable("span_width_prior_embeddings", [self.config["max_span_width"], self.config["feature_size"]]) # [W, emb]
+        span_width_emb = tf.get_variable("span_width_prior_embeddings", [self.config["max_span_width"], self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)) # [W, emb]
         span_width_index = span_ends - span_starts # [NC]
         with tf.variable_scope("width_scores"):
           width_scores =  util.ffnn(span_width_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # [W, 1]
@@ -437,7 +436,7 @@ class CorefModel(object):
     if self.config["use_metadata"]:
       top_antecedent_speaker_ids = tf.gather(top_span_speaker_ids, top_antecedents) # [k, c]
       same_speaker = tf.equal(tf.expand_dims(top_span_speaker_ids, 1), top_antecedent_speaker_ids) # [k, c]
-      speaker_pair_emb = tf.gather(tf.get_variable("same_speaker_emb", [2, self.config["feature_size"]]), tf.to_int32(same_speaker)) # [k, c, emb]
+      speaker_pair_emb = tf.gather(tf.get_variable("same_speaker_emb", [2, self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)), tf.to_int32(same_speaker)) # [k, c, emb]
       feature_emb_list.append(speaker_pair_emb)
 
       tiled_genre_emb = tf.tile(tf.expand_dims(tf.expand_dims(genre_emb, 0), 0), [k, c, 1]) # [k, c, emb]
@@ -445,11 +444,11 @@ class CorefModel(object):
 
     if self.config["use_features"]:
       antecedent_distance_buckets = self.bucket_distance(top_antecedent_offsets) # [k, c]
-      antecedent_distance_emb = tf.gather(tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]]), antecedent_distance_buckets) # [k, c]
+      antecedent_distance_emb = tf.gather(tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)), antecedent_distance_buckets) # [k, c]
       feature_emb_list.append(antecedent_distance_emb)
     if segment_distance is not None:
       with tf.variable_scope('segment_distance', reuse=tf.AUTO_REUSE):
-        segment_distance_emb = tf.gather(tf.get_variable("segment_distance_embeddings", [self.config['max_training_sentences'], self.config["feature_size"]]), segment_distance) # [k, emb]
+        segment_distance_emb = tf.gather(tf.get_variable("segment_distance_embeddings", [self.config['max_training_sentences'], self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)), segment_distance) # [k, emb]
       span_width_emb = tf.nn.dropout(segment_distance_emb, self.dropout)
       feature_emb_list.append(segment_distance_emb)
 
