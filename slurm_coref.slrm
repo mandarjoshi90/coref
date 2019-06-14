@@ -1,0 +1,13 @@
+#!/bin/sh
+#SBATCH --job-name=large_bert
+#SBATCH --partition=dev
+#SBATCH --comment=internship_deadline_jobs_end_on_wed_noon
+#SBATCH --constraint=volta32gb
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem=100000
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:1
+#SBATCH --time=1200
+PYTHONPATH=../huggingface-fairseq python train.py $1
+#srun sh slurm_coref.sh
