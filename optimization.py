@@ -64,7 +64,7 @@ def create_custom_optimizer(tvars, loss, bert_init_lr, task_init_lr, num_train_s
     task_optimizer = tf.train.AdamOptimizer(
       learning_rate=task_learning_rate)
   else:
-    raise NotImplementedError('Check optimizer')
+    raise NotImplementedError('Check optimizer. {} is invalid.'.format(task_opt))
 
   # tvars = tf.trainable_variables()
   bert_vars, task_vars = [], []
