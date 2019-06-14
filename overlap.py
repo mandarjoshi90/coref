@@ -23,6 +23,7 @@ import metrics
 import optimization
 from bert import tokenization
 from bert import modeling
+from pytorch_to_tf import load_from_pytorch_checkpoint
 
 class CorefModel(object):
   def __init__(self, config):
@@ -61,8 +62,9 @@ class CorefModel(object):
     self.predictions, self.loss = self.get_predictions_and_loss(*self.input_tensors)
     # bert stuff
     tvars = tf.trainable_variables()
-    assignment_map, initialized_variable_names = modeling.get_assignment_map_from_checkpoint(tvars, config['init_checkpoint'])
-    tf.train.init_from_checkpoint(config['init_checkpoint'], assignment_map)
+    assignment_map, initialized_variable_names = modeling.get_assignment_map_from_checkpoint(tvars, config['tf_checkpoint'])
+    init_from_checkpoint = tf.train.init_from_checkpoint if config['init_checkpoint'].endswith('ckpt') else load_from_pytorch_checkpoint
+    init_from_checkpoint(config['init_checkpoint'], assignment_map)
     print("**** Trainable Variables ****")
     for var in tvars:
       init_string = ""
