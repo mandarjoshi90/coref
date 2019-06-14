@@ -213,8 +213,7 @@ def minimize_partition(name, language, extension, labels, stats, tokenizer, seg_
       count += 1
   print("Wrote {} documents to {}".format(count, output_path))
 
-def minimize_language(language, labels, stats, vocab_file, seg_len, input_dir, output_dir):
-  do_lower_case = True if 'chinese' in vocab_file else False
+def minimize_language(language, labels, stats, vocab_file, seg_len, input_dir, output_dir, do_lower_case):
   tokenizer = tokenization.FullTokenizer(
                 vocab_file=vocab_file, do_lower_case=do_lower_case)
   minimize_partition("dev", language, "v4_gold_conll", labels, stats, tokenizer, seg_len, input_dir, output_dir)
@@ -225,10 +224,12 @@ if __name__ == "__main__":
   vocab_file = sys.argv[1]
   input_dir = sys.argv[2]
   output_dir = sys.argv[3]
+  do_lower_case = sys.argv[4].lower() == 'true'
+  print(do_lower_case)
   labels = collections.defaultdict(set)
   stats = collections.defaultdict(int)
   for seg_len in [128]:
-    minimize_language("english", labels, stats, vocab_file, seg_len, input_dir, output_dir)
+    minimize_language("english", labels, stats, vocab_file, seg_len, input_dir, output_dir, do_lower_case)
     # minimize_language("chinese", labels, stats, vocab_file, seg_len)
     # minimize_language("es", labels, stats, vocab_file, seg_len)
     # minimize_language("arabic", labels, stats, vocab_file, seg_len)
