@@ -52,6 +52,7 @@ We apply BERT to coreference resolution, achieving a new state of the art on the
 * `max_segment_len`: The maximum size of the BERT segment.
 
 ## Notes
+* `module load /public/modulefiles/anaconda3/5.0.1 /public/modulefiles/cuda/9.0 /public/modulefiles/cudnn/v7.0-cuda.9.0`: Use these before you load the env. Note that this is cuda 9.
 * The current config runs the Independent model.
 * I've made minor modifications to `current_models.py` copied from Danqi's bert-eval repo. In particular, I've added paths to all four google models. Please double check these before running `tune.py`.
 * When running on test, change the `eval_path` and `conll_eval_path` from dev to test.
