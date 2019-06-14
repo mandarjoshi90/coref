@@ -1,34 +1,27 @@
-# Higher-order Coreference Resolution with Coarse-to-fine Inference
+# BERT for Coreference Resolution: Baselines and Analysis
+
 
 ## Introduction
 This repository contains the code for replicating results from
 
-* [Higher-order Coreference Resolution with Coarse-to-fine Inference](https://arxiv.org/abs/1804.05392)
-* [Kenton Lee](http://kentonl.com/), [Luheng He](https://homes.cs.washington.edu/~luheng), and [Luke Zettlemoyer](https://www.cs.washington.edu/people/faculty/lsz)
-* In NAACL 2018
+* [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!) 
+* OpenReview Anonymous Prepreint
+We apply BERT to coreference resolution, achieving a new state of the art on the GAP (+11.5 F1) and OntoNotes (+3.9 F1) benchmarks.
 
 ## Getting Started
-
 * Install python (either 2 or 3) requirements: `pip install -r requirements.txt`
-* Download pretrained word embeddings and build custom kernels by running `setup_all.sh`.
   * There are 3 platform-dependent ways to build custom TensorFlow kernels. Please comment/uncomment the appropriate lines in the script.
-* Run one of the following:
-  * To use the pretrained model only, run `setup_pretrained.sh`
-  * To train your own models, run `setup_training.sh`
-    * This assumes access to OntoNotes 5.0. Please edit the `ontonotes_path` variable.
+* Preprocessing
+  * `python minimize.py <bert_vocab_file> <ontonotes_data_dir> <output_dir> <do_lower_case>`: Ensure that `<do_lower_case>` is `true` for uncased models and `false` for cased models. The `<output_dir>` should contain `*.english.v4_gold_conll` files. See the [e2e-coref](https://github.com/kentonl/e2e-coref/tree/e2e) for further details.
 
 ## Training Instructions
 
 * Experiment configurations are found in `experiments.conf`
 * Choose an experiment that you would like to run, e.g. `best`
-* Training: `python train.py <experiment>`
+* Training: `GPU=0 python train.py <experiment>`
 * Results are stored in the `logs` directory and can be viewed via TensorBoard.
 * Evaluation: `python evaluate.py <experiment>`
 
-## Demo Instructions
-
-* Command-line demo: `python demo.py final`
-* To run the demo with other experiments, replace `final` with your configuration name.
 
 ## Batched Prediction Instructions
 
@@ -46,7 +39,13 @@ This repository contains the code for replicating results from
   * `speakers` indicates the speaker of each word. These can be all empty strings if there is only one known speaker.
 * Run `python predict.py <experiment> <input_file> <output_file>`, which outputs the input jsonlines with predicted clusters.
 
-## Other Quirks
+## Tune Hyperparameters
+* `python tune_models.py configs`: This generates multiple configs for tuning (BERT and task) learning rates, embedding models, and `max_segment_len`. This modifies `experiments.conf`. Use `--trial` to print to stdout instead.
+* `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a reg exp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "*sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
+* `python tune_models.py run`: This launches jobs from torun.txt on the slurm cluster.
 
-* It does not use GPUs by default. Instead, it looks for the `GPU` environment variable, which the code treats as shorthand for `CUDA_VISIBLE_DEVICES`.
-* The training runs indefinitely and needs to be terminated manually. The model generally converges at about 400k steps.
+## Important Hyperpameters
+* `bert_learning_rate`: The learning rate for the BERT parameters. Typically, `1e-5` and `2e-5` work well.
+* `task_learning_rate`: The learning rate for the other parameters. Typically, LRs between `0.0001` to `0.0003` work well.
+* `init_checkpoint`: The checkpoint file from which BERT parameters are initialized. Both TF and Pytorch checkpoints work as long as they use the same BERT architecture. Use `*ckpt` files for TF and `*pt` for Pytorch.
+* `max_segment_len`: The maximum size of the BERT segment. 
