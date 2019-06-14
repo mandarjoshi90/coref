@@ -1,7 +1,7 @@
 import tensorflow as tf
 from bert.optimization import AdamWeightDecayOptimizer
 
-def create_custom_optimizer(tvars, loss, bert_init_lr, task_init_lr, num_train_steps, num_warmup_steps, use_tpu, global_step=None, freeze=-1):
+def create_custom_optimizer(tvars, loss, bert_init_lr, task_init_lr, num_train_steps, num_warmup_steps, use_tpu, global_step=None, freeze=-1, task_opt='adam', eps=1e-6):
   """Creates an optimizer training op."""
   if global_step is None:
     global_step = tf.train.get_or_create_global_step()
@@ -50,10 +50,21 @@ def create_custom_optimizer(tvars, loss, bert_init_lr, task_init_lr, num_train_s
       weight_decay_rate=0.01,
       beta_1=0.9,
       beta_2=0.999,
-      epsilon=1e-6,
+      epsilon=eps,
       exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
-  task_optimizer = tf.train.AdamOptimizer(
+  if task_opt == 'adam_weight_decay':
+    task_optimizer = AdamWeightDecayOptimizer(
+          learning_rate=task_learning_rate,
+          weight_decay_rate=0.01,
+          beta_1=0.9,
+          beta_2=0.999,
+          epsilon=eps
+    )
+  elif task_opt == 'adam':
+    task_optimizer = tf.train.AdamOptimizer(
       learning_rate=task_learning_rate)
+  else:
+    raise NotImplementedError('Check optimizer')
 
   # tvars = tf.trainable_variables()
   bert_vars, task_vars = [], []
@@ -80,6 +91,9 @@ def create_custom_optimizer(tvars, loss, bert_init_lr, task_init_lr, num_train_s
       zip(bert_grads, bert_vars), global_step=global_step)
   task_train_op = task_optimizer.apply_gradients(
       zip(task_grads, task_vars), global_step=global_step)
-
-  train_op = tf.group(bert_train_op, task_train_op)
+  if task_opt == 'adam_weight_decay':
+    new_global_step = global_step + 1
+    train_op = tf.group(bert_train_op, task_train_op, [global_step.assign(new_global_step)])
+  else:
+    train_op = tf.group(bert_train_op, task_train_op)
   return train_op
