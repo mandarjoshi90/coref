@@ -30,6 +30,7 @@ def get_conf_lines(model, seg_len, bert_lr, task_lr, bert_model_dir, checkpoint,
     lines += ['  max_training_sentences = {}'.format(max_sents[seg_len])]
     lines += ['  bert_config_file = {}/bert_config.json'.format(bert_model_dir)]
     lines += ['  vocab_file = {}/vocab.txt'.format(bert_model_dir)]
+    lines += ['  tf_checkpoint = {}/bert_model.ckpt'.format(bert_model_dir)]
     lines += ['  init_checkpoint = {}'.format(checkpoint)]
     if task_optimizer is not None:
         lines += ['  task_optimizer = {}'.format(task_optimizer)]
