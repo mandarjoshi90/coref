@@ -9,5 +9,5 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:1
 #SBATCH --time=1200
-PYTHONPATH=../huggingface-fairseq python train.py $1
-#srun sh slurm_coref.sh
+
+python train.py $1
