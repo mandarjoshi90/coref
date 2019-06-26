@@ -10,7 +10,6 @@ import json
 import threading
 import numpy as np
 import tensorflow as tf
-import tensorflow_hub as hub
 import h5py
 import os
 import sys
