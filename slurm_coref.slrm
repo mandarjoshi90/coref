@@ -1,7 +1,5 @@
 #!/bin/sh
-#SBATCH --job-name=large_bert
-#SBATCH --partition=dev
-#SBATCH --comment=internship_deadline_jobs_end_on_wed_noon
+#SBATCH --partition=learnfair
 #SBATCH --constraint=volta32gb
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1

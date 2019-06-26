@@ -60,7 +60,7 @@ def generate(args):
 def run_slrm(args):
     with open(args.jobs_file) as f:
         for i, line in enumerate(f):
-            os.system('sbatch {} {}'.format(args.slrm_file, line))
+            os.system('sbatch -J {} {} {}'.format(line.strip(), args.slrm_file, line))
             print('starting job', line)
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 *.pyc
+*.out
 *.so
 *.jsonlines
 logs
