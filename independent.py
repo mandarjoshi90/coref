@@ -70,8 +70,7 @@ class CorefModel(object):
         init_string = ", *INIT_FROM_CKPT*"
       # tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                       # init_string)
-      print("  name = %s, shape = %s%s", var.name, var.shape,
-                      init_string)
+      print("  name = %s, shape = %s%s" % (var.name, var.shape, init_string))
 
     num_train_steps = int(
                     self.config['num_docs'] * self.config['num_epochs'])

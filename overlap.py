@@ -72,8 +72,7 @@ class CorefModel(object):
         init_string = ", *INIT_FROM_CKPT*"
       # tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                       # init_string)
-      print("  name = %s, shape = %s%s", var.name, var.shape,
-                      init_string)
+      print("  name = %s, shape = %s%s" % (var.name, var.shape, init_string))
 
     num_train_steps = int(
                     self.config['num_docs'] * self.config['num_epochs'])
@@ -237,7 +236,7 @@ class CorefModel(object):
     overlap_mask[0, 1: 1 + prev_tokens_per_seg[sentence_offset ]] = 0
     assert num_words == overlap_mask.sum() - 2 * np.shape(overlap_ids)[0], (num_words, overlap_mask.sum(), text_len)
     speaker_ids = speaker_ids[sentence_offset:sentence_offset + max_training_sentences, :]
-    text_len = text_len[sentence_offset:sentence_offset + max_training_sentences] 
+    text_len = text_len[sentence_offset:sentence_offset + max_training_sentences]
 
     sentence_map = sentence_map[word_offset: word_offset + num_words]
     gold_spans = np.logical_and(gold_ends >= word_offset, gold_starts < word_offset + num_words)
@@ -636,4 +635,3 @@ class CorefModel(object):
     print("Average recall (py): {:.2f}%".format(r * 100))
 
     return util.make_summary(summary_dict), f
-
