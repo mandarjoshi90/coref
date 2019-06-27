@@ -3,7 +3,7 @@ import time
 import argparse
 from current_models import CURRENT_MODELS, MODEL_CAT_TO_GOOGLE_DIR
 # 512 always performs best for our models.
-max_sents = {256: 5, 384: 3, 512: 3}
+max_sents = {128: 11, 256: 5, 384: 3, 512: 3}
 # max_sents = {64: 23, 128:11, 256: 5, 384: 3, 512: 3}
 
 bert_lrs = [1e-5, 2e-5]
