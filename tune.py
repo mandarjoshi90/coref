@@ -60,8 +60,9 @@ def generate(args):
 def run_slrm(args):
     with open(args.jobs_file) as f:
         for i, line in enumerate(f):
-            os.system('sbatch -J {} {} {}'.format(line.strip(), args.slrm_file, line))
-            print('starting job', line)
+            job = line.strip()
+            os.system('sbatch -J {} {} {}'.format('coref_' + job, args.slrm_file, job))
+            print('starting job {}'.format(job))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
