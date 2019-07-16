@@ -29,7 +29,7 @@ def get_model(config):
     else:
         raise NotImplementedError('Undefined model type')
 
-def initialize_from_env():
+def initialize_from_env(eval_test=False):
   if "GPU" in os.environ:
     set_gpus(int(os.environ["GPU"]))
   # else:
@@ -38,7 +38,10 @@ def initialize_from_env():
   name = sys.argv[1]
   print("Running experiment: {}".format(name))
 
-  config = pyhocon.ConfigFactory.parse_file("experiments.conf")[name]
+  if eval_test:
+    config = pyhocon.ConfigFactory.parse_file("test.experiments.conf")[name]
+  else:
+    config = pyhocon.ConfigFactory.parse_file("experiments.conf")[name]
   config["log_dir"] = mkdirs(os.path.join(config["log_root"], name))
 
   print(pyhocon.HOCONConverter.convert(config, "hocon"))

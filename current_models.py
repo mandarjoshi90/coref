@@ -11,7 +11,7 @@ CURRENT_MODELS = {
     'base_big_batch_no_nsp_random': ('bert-base-cased', '/checkpoint/danqi/fast_models/base_no_nsp_random/checkpoint_best.pt'),
     'base_big_batch_no_nsp_random_200k': ('bert-base-cased', '/checkpoint/danqi/fast_models/base_no_nsp_random/checkpoint_50_200000.pt'),
     'base_big_batch_no_nsp_pair': ('bert-base-cased', '/private/home/omerlevy/cookie/fast_models/base_pair_external/checkpoint_best.pt'),
-    # 'base_big_batch_no_nsp_pair_200k': ('bert-base-cased', '/checkpoint/omerlevy/fast_models/base_pair_external/checkpoint_50_200000.pt'),
+    'base_big_batch_no_nsp_pair_200k': ('bert-base-cased', '/checkpoint/omerlevy/fast_models/base_pair_external/checkpoint_50_200000.pt'),
     'base_big_batch_geo_200k': ('bert-base-cased', '/checkpoint/danqi/fast_models/base_geo/checkpoint_50_200000.pt'),
     'base_big_batch_ner_200k': ('bert-base-cased', '/checkpoint/danqi/fast_models/base_ner/checkpoint_50_200000.pt'),
     'base_big_batch_np_200k': ('bert-base-cased', '/checkpoint/omerlevy/fast_models/base_np/checkpoint_50_200000.pt'),
