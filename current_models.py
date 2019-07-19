@@ -3,7 +3,7 @@ CURRENT_MODELS = {
     'small_batch_random': ('bert-large-cased', '/checkpoint/omerlevy/span_bert_models/cased/random/checkpoint_best.pt'),
     'small_batch_no_nsp_random': ('bert-large-cased', '/checkpoint/omerlevy/mandar_data/pretraining_models/no_nsp_random/checkpoint_best.pt'),
     'small_batch_no_nsp_pair': ('bert-large-cased', '/checkpoint/omerlevy/mandar_data/pretraining_models/no_nsp_pair/checkpoint_best.pt'),
-    'small_batch_no_nsp_pair_1.2m': ('bert-large-cased', '/checkpoint/omerlevy/mandar_data/pretraining_models/no_nsp_pair/checkpoint_37_1200000.pt.pt'),
+    'small_batch_no_nsp_pair_1.2m': ('bert-large-cased', '/checkpoint/omerlevy/mandar_data/pretraining_models/no_nsp_pair/checkpoint_37_1200000.pt'),
     'small_batch_no_nsp_geo_1.2m': ('bert-large-cased', '/checkpoint/omerlevy/slow_models/geo/checkpoint_37_1200000.pt'),
     'small_batch_random_1.2m': ('bert-large-cased', '/checkpoint/omerlevy/span_bert_models/cased/random/checkpoint_27_1200000.pt'),
     'small_batch_geo_1.2m': ('bert-large-cased', '/checkpoint/omerlevy/mandar_data/pretraining_models/geo_span_0.2/checkpoint_27_1200000.pt'),
