@@ -1,20 +1,25 @@
-# BERT for Coreference Resolution: Baselines and Analysis
+# BERT for Coreference Resolution
+This repository contains code and models for the paper, [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!). Additionally, we also include the coreference resolution model from the paper [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529), which is the current state of the art on OntoNotes (79.6 F1). The model architecture itself is an extension of the [e2e-coref](https://github.com/kentonl/e2e-coref) model.
+
+## Pretrained Models
+Please download following files to use the pretrained models on your data.
+
+TODO: Add table of results and links
 
 
-## Introduction
-This repository contains the code for replicating results from
-
-* [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!) 
-* OpenReview Anonymous Prepreint
-We apply BERT to coreference resolution, achieving a new state of the art on the GAP (+11.5 F1) and OntoNotes (+3.9 F1) benchmarks.
-
-## Getting Started
-* Install python (either 2 or 3) requirements: `pip install -r requirements.txt`
+## Setup
+* Install python3 requirements: `pip install -r requirements.txt`
   * There are 3 platform-dependent ways to build custom TensorFlow kernels. Please comment/uncomment the appropriate lines in the script.
 * Preprocessing: You don't need to do this. Everything is already in `/checkpoint/mandarj/coref_data`
   * `python minimize.py <bert_vocab_file> <ontonotes_data_dir> <output_dir> <do_lower_case>`: Ensure that `<do_lower_case>` is `true` for uncased models and `false` for cased models. The `<output_dir>` should contain `*.english.v4_gold_conll` files. See the [e2e-coref](https://github.com/kentonl/e2e-coref/tree/e2e) for further details.
 
-## Training Instructions
+## Training / Finetuning Instructions
+Finetuning the large model on OntoNotes requires access to a 32 GB machine. 
+
+* `python tune.py  --generate_configs --data_dir <coref_data_dir>`: This generates multiple configs for tuning (BERT and task) learning rates, embedding models, and `max_segment_len`. This modifies `experiments.conf`. Use `--trial` to print to stdout instead. If you need to generate this from scratch, refer to `basic.conf`.
+* `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a regexp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
+* `python tune.py --data_dir <coref_data_dir> --run_jobs`: This launches jobs from torun.txt on the slurm cluster.
+
 
 * Experiment configurations are found in `experiments.conf`
 * Choose an experiment that you would like to run, e.g. `best`
@@ -39,11 +44,6 @@ We apply BERT to coreference resolution, achieving a new state of the art on the
   * `speakers` indicates the speaker of each word. These can be all empty strings if there is only one known speaker.
 * Run `python predict.py <experiment> <input_file> <output_file>`, which outputs the input jsonlines with predicted clusters.
 
-## Tune Hyperparameters
-* `python tune.py  --generate_configs --data_dir <coref_data_dir>`: This generates multiple configs for tuning (BERT and task) learning rates, embedding models, and `max_segment_len`. This modifies `experiments.conf`. Use `--trial` to print to stdout instead. If you need to generate this from scratch, refer to `basic.conf`.
-* `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a regexp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
-* `python tune.py --data_dir <coref_data_dir> --run_jobs`: This launches jobs from torun.txt on the slurm cluster.
-
 ## Important Config Keys
 * `log_root`: This is where all models and logs are stored. Check this before running anything.
 * `bert_learning_rate`: The learning rate for the BERT parameters. Typically, `1e-5` and `2e-5` work well.
@@ -61,3 +61,18 @@ We apply BERT to coreference resolution, achieving a new state of the art on the
 ``
 2019-06-12 12:43:11,926 - INFO - __main__ - [57000] evaL_f1=0.7694, max_f1=0.7697
 ``
+
+## Citations
+If you use the pretrained *BERT* coreference model (or this architecture), please cite the paper, [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!).
+```
+```
+
+If you use the pretrained *SpanBERT* coreference model, please cite the paper, [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529).
+```
+@article{joshi2019spanbert,
+    title={{SpanBERT}: Improving Pre-training by Representing and Predicting Spans},
+    author={Mandar Joshi and Danqi Chen and Yinhan Liu and Daniel S. Weld and Luke Zettlemoyer and Omer Levy},
+    year={2019},
+    journal={arXiv preprint arXiv:1907.10529}
+}
+```
