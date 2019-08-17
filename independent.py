@@ -3,17 +3,12 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import operator
 import random
 import math
 import json
 import threading
 import numpy as np
 import tensorflow as tf
-import h5py
-import os
-import sys
-
 
 import util
 import coref_ops

@@ -1,6 +1,5 @@
 import sys
 import json
-import os
 import util
 
 def find_pronoun_cluster(prediction, pronoun_subtoken_span, cluster_key='predicted_clusters'):
@@ -55,30 +54,14 @@ def convert(json_file, tsv_file):
         pronoun_cluster = find_pronoun_cluster(prediction, prediction['pronoun_subtoken_span'])
         a_coref, b_coref = 'FALSE', 'FALSE'
         a_text, b_text = (tsv[key][4], tsv[key][7]) if tsv is not None else (None, None)
-        # if len(pronoun_cluster ) == 0:
-            # print('no prons')
         for span in pronoun_cluster:
             a_aligned = is_aligned(span, prediction['a_subtoken_span']) if tsv is None else is_substring_aligned(span, sents, a_text)
             b_aligned = is_aligned(span, prediction['b_subtoken_span']) if tsv is None else is_substring_aligned(span, sents, b_text)
 
-# a_aligned =  is_substring_aligned(span, sents, a_text)
-            # b_aligned =  is_substring_aligned(span, sents, b_text)
-            # if is_aligned(span, prediction['a_subtoken_span']):
-            # if is_substring_aligned(span, sents, a_text):
-            # if span[0] == prediction['a_subtoken_span'][0] or span[1] == prediction['a_subtoken_span'][1]:
             if a_aligned:
                 a_coref = 'TRUE'
-            # if is_aligned(span, prediction['b_subtoken_span']):
-            # if is_substring_aligned(span, sents, b_text):
             if b_aligned:
-            #if span[0] == prediction['b_subtoken_span'][0] or span[1] == prediction['b_subtoken_span'][1]:
                 b_coref = 'TRUE'
-        # if a_coref == 'FALSE' and b_coref == 'FALSE':
-            # # import ipdb
-            # # ipdb.set_trace()
-            # a, b = prediction['a_subtoken_span'], prediction['b_subtoken_span']
-            # print(key, pronoun_cluster, prediction['a_subtoken_span'], prediction['b_subtoken_span'], prediction['sentences'][0][a[0]:a[1]+10],
-                    # prediction['sentences'][0][b[0]:b[1] + 10])
         predictions += ['\t'.join([key, a_coref, b_coref])]
     # write file
     with open(json_file.replace('jsonlines', 'tsv'), 'w') as f:
@@ -89,4 +72,3 @@ if __name__ == '__main__':
     json_file = sys.argv[1]
     tsv_file = sys.argv[2] if len(sys.argv) == 3 else None
     convert(json_file, tsv_file)
-    

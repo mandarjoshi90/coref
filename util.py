@@ -6,8 +6,6 @@ import os
 import errno
 import codecs
 import collections
-import json
-import math
 import shutil
 import sys
 
@@ -17,23 +15,18 @@ import pyhocon
 
 import independent
 import overlap
-import gold_mentions
 
 def get_model(config):
     if config['model_type'] == 'independent':
         return independent.CorefModel(config)
     elif config['model_type'] == 'overlap':
         return overlap.CorefModel(config)
-    elif config['model_type'] == 'gold_mentions':
-        return gold_mentions.CorefModel(config)
     else:
         raise NotImplementedError('Undefined model type')
 
 def initialize_from_env(eval_test=False):
   if "GPU" in os.environ:
     set_gpus(int(os.environ["GPU"]))
-  # else:
-    # set_gpus()
 
   name = sys.argv[1]
   print("Running experiment: {}".format(name))

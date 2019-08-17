@@ -4,11 +4,8 @@ from __future__ import print_function
 
 
 import re
-import os
 import sys
 import json
-import tempfile
-import subprocess
 import collections
 
 import util
@@ -125,14 +122,9 @@ def split_into_segments(document_state, max_segment_len, constraints1, constrain
         while end >= current and not constraints2[end]:
             end -= 1
         if end < current:
-            # import ipdb
-            # ipdb.set_trace()
             raise Exception('Can find valid segment')
     document_state.segments.append( document_state.subtokens[current:end + 1])
     subtoken_map = document_state.subtoken_map[current : end + 1]
-    # if len(document_state.segments[-1]) > 230:
-        # import ipdb
-        # ipdb.set_trace()
     document_state.segment_subtoken_map.append( subtoken_map)
     info = document_state.info[current : end + 1]
     document_state.segment_info.append(info)
@@ -145,12 +137,10 @@ def get_sentence_map(segments, sentence_end):
   sent_end_idx = 0
   assert len(sentence_end) == sum([len(s) for s in segments])
   for segment in segments:
-    # sent_map.append(current)
     for i in range(len(segment) ):
       sent_map.append(current)
       current += int(sentence_end[sent_end_idx])
       sent_end_idx += 1
-    # sent_map.append(current - 1)
   return sent_map
 
 def get_document(document_lines, tokenizer, language, segment_len):
@@ -174,8 +164,6 @@ def get_document(document_lines, tokenizer, language, segment_len):
         document_state.subtoken_map.append(word_idx)
     else:
       document_state.sentence_end[-1] = True
-  # split_into_segments(document_state, segment_len, document_state.token_end)
-  #split_into_segments(document_state, segment_len, document_state.sentence_end)
   constraints1 = document_state.sentence_end if language != 'arabic' else document_state.token_end
   split_into_segments(document_state, segment_len, constraints1, document_state.token_end)
   stats["max_sent_len_{}".format(language)] = max(max([len(s) for s in document_state.segments]), stats["max_sent_len_{}".format(language)])

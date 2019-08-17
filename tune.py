@@ -1,5 +1,4 @@
 import os
-import time
 import argparse
 from current_models import CURRENT_MODELS, MODEL_CAT_TO_GOOGLE_DIR
 # 512 always performs best for our models.

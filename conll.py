@@ -3,9 +3,6 @@ from __future__ import division
 from __future__ import print_function
 
 import re
-import os
-import sys
-import json
 import tempfile
 import subprocess
 import operator
@@ -23,8 +20,6 @@ def output_conll(input_file, output_file, predictions, subtoken_map):
     start_map = collections.defaultdict(list)
     end_map = collections.defaultdict(list)
     word_map = collections.defaultdict(list)
-    # import ipdb
-    # ipdb.set_trace()
     for cluster_id, mentions in enumerate(clusters):
       for start, end in mentions:
         start, end = subtoken_map[doc_key][start], subtoken_map[doc_key][end]
