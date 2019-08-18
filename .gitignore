@@ -3,7 +3,6 @@
 *.so
 *.jsonlines
 logs
-conll-2012
 char_vocab*.txt
 glove*.txt
 glove*.txt.filtered

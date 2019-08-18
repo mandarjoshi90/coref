@@ -9,17 +9,16 @@ TODO: Add table of results and links
 
 ## Setup
 * Install python3 requirements: `pip install -r requirements.txt`
-  * There are 3 platform-dependent ways to build custom TensorFlow kernels. Please comment/uncomment the appropriate lines in the script.
+* `./setup_all.sh`: This builds the custom kernels
 * Preprocessing: You don't need to do this. Everything is already in `/checkpoint/mandarj/coref_data`
   * `python minimize.py <bert_vocab_file> <ontonotes_data_dir> <output_dir> <do_lower_case>`: Ensure that `<do_lower_case>` is `true` for uncased models and `false` for cased models. The `<output_dir>` should contain `*.english.v4_gold_conll` files. See the [e2e-coref](https://github.com/kentonl/e2e-coref/tree/e2e) for further details.
 
 ## Training / Finetuning Instructions
-Finetuning the large model on OntoNotes requires access to a 32 GB machine. 
+Note: Finetuning a BERT-large model on OntoNotes requires access to a 32GB GPU. You might be able to train the large model with a smaller `max_seq_length` on a 16GB machine; this will almost certainly result in relatively poorer performance as measured on OntoNotes. Running/testing a large pretrained model is still possible on a 16GB GPU.
 
-* `python tune.py  --generate_configs --data_dir <coref_data_dir>`: This generates multiple configs for tuning (BERT and task) learning rates, embedding models, and `max_segment_len`. This modifies `experiments.conf`. Use `--trial` to print to stdout instead. If you need to generate this from scratch, refer to `basic.conf`.
-* `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a regexp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
-* `python tune.py --data_dir <coref_data_dir> --run_jobs`: This launches jobs from torun.txt on the slurm cluster.
-
+### Setup for training
+This assumes access to OntoNotes 5.0.
+`./setup_training.sh <ontonotes/path/ontonotes-release-5.0> <output_data_dir>`
 
 * Experiment configurations are found in `experiments.conf`
 * Choose an experiment that you would like to run, e.g. `best`
@@ -27,6 +26,10 @@ Finetuning the large model on OntoNotes requires access to a 32 GB machine.
 * Results are stored in the `log_root` directory (see `experiments.conf`) and can be viewed via TensorBoard.
 * Evaluation: `PYTHONPATH=<span_bert_dir> python evaluate.py <experiment>`
 
+If you have access to a slurm GPU cluster, you could use the following for set of commands for training.
+* `python tune.py  --generate_configs --data_dir <coref_data_dir>`: This generates multiple configs for tuning (BERT and task) learning rates, embedding models, and `max_segment_len`. This modifies `experiments.conf`. Use `--trial` to print to stdout instead. If you need to generate this from scratch, refer to `basic.conf`.
+* `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a regexp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
+* `python tune.py --data_dir <coref_data_dir> --run_jobs`: This launches jobs from torun.txt on the slurm cluster.
 
 ## Batched Prediction Instructions
 
@@ -52,9 +55,7 @@ Finetuning the large model on OntoNotes requires access to a 32 GB machine.
 * `max_segment_len`: The maximum size of the BERT segment.
 
 ## Notes
-* `module load /public/modulefiles/anaconda3/5.0.1 /public/modulefiles/cuda/9.0 /public/modulefiles/cudnn/v7.0-cuda.9.0`: Use these before you load the env. Note that this is cuda 9.
 * The current config runs the Independent model.
-* I've made minor modifications to `current_models.py` copied from Danqi's bert-eval repo. In particular, I've added paths to all four google models. Please double check these before running `tune.py`.
 * When running on test, change the `eval_path` and `conll_eval_path` from dev to test.
 * The current best models are in `<coref_dir>/current_best`
 * The `model_dir` inside the `log_root` contains `stdout.log`. Check the `max_f1` after 57000 steps. For example
@@ -63,11 +64,17 @@ Finetuning the large model on OntoNotes requires access to a 32 GB machine.
 ``
 
 ## Citations
-If you use the pretrained *BERT* coreference model (or this architecture), please cite the paper, [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!).
+If you use the pretrained *BERT*-based coreference model (or this implementation), please cite the paper, [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!).
 ```
+@article{joshi2019coref,
+    title={{BERT} for Coreference Resolution: Baselines and Analysis},
+    author={Mandar Joshi and Omer Levy and Daniel S. Weld and Luke Zettlemoyer and Omer Levy},
+    year={2019},
+    booktitle={Empirical Methods in Natural Language Processing (EMNLP)}
+}
 ```
 
-If you use the pretrained *SpanBERT* coreference model, please cite the paper, [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529).
+Additionally, if you use the pretrained *SpanBERT* coreference model, please cite the paper, [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529).
 ```
 @article{joshi2019spanbert,
     title={{SpanBERT}: Improving Pre-training by Representing and Predicting Spans},

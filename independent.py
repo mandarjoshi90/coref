@@ -559,9 +559,6 @@ class CorefModel(object):
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
     summary_dict = {}
-    # with open('doc_keys_512.txt', 'w') as f:
-      # for key in doc_keys:
-        # f.write(key + '\n')
     if eval_mode:
       conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, self.subtoken_maps, official_stdout )
       average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)

@@ -20,12 +20,7 @@ if __name__ == "__main__":
   model = util.get_model(config)
   saver = tf.train.Saver()
   log_dir = config["log_dir"]
-  #keys = read_doc_keys('../kenton-coref-elmo-2018/doc_keys_512.txt')
   with tf.Session() as session:
-    # ckpt = tf.train.get_checkpoint_state(log_dir, latest_filename='model.max.ckpt')
-    # print(ckpt.model_checkpoint_path)
-    # if ckpt and ckpt.model_checkpoint_path:
-      # print("Restoring from: {}".format(ckpt.model_checkpoint_path))
-      # saver.restore(session, ckpt.model_checkpoint_path)
     model.restore(session)
+    # Make sure eval mode is True if you want official conll results
     model.evaluate(session, official_stdout=True, eval_mode=True)
