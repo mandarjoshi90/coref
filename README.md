@@ -4,14 +4,17 @@ This repository contains code and models for the paper, [BERT for Coreference Re
 ## Pretrained Models
 Please download following files to use the pretrained models on your data.
 
-TODO: Add table of results and links
+| Model          | F1 (%) | Download |
+| -------------- |:------:| :------: |
+| BERT-base      | 73.9   | [Link]() |
+| SpanBERT-Base  | 77.7   | [Link]() |
+| BERT-large     | 76.9   | [Link]() |
+| SpanBERT-large | 79.6   | [Link]() |
 
 
 ## Setup
 * Install python3 requirements: `pip install -r requirements.txt`
 * `./setup_all.sh`: This builds the custom kernels
-* Preprocessing: You don't need to do this. Everything is already in `/checkpoint/mandarj/coref_data`
-  * `python minimize.py <bert_vocab_file> <ontonotes_data_dir> <output_dir> <do_lower_case>`: Ensure that `<do_lower_case>` is `true` for uncased models and `false` for cased models. The `<output_dir>` should contain `*.english.v4_gold_conll` files. See the [e2e-coref](https://github.com/kentonl/e2e-coref/tree/e2e) for further details.
 
 ## Training / Finetuning Instructions
 Note: Finetuning a BERT-large model on OntoNotes requires access to a 32GB GPU. You might be able to train the large model with a smaller `max_seq_length` on a 16GB machine; this will almost certainly result in relatively poorer performance as measured on OntoNotes. Running/testing a large pretrained model is still possible on a 16GB GPU.
@@ -52,21 +55,21 @@ If you have access to a slurm GPU cluster, you could use the following for set o
 * `bert_learning_rate`: The learning rate for the BERT parameters. Typically, `1e-5` and `2e-5` work well.
 * `task_learning_rate`: The learning rate for the other parameters. Typically, LRs between `0.0001` to `0.0003` work well.
 * `init_checkpoint`: The checkpoint file from which BERT parameters are initialized. Both TF and Pytorch checkpoints work as long as they use the same BERT architecture. Use `*ckpt` files for TF and `*pt` for Pytorch.
-* `max_segment_len`: The maximum size of the BERT segment.
+* `max_segment_len`: The maximum size of the BERT context window. Larger segments work better for SpanBERT while BERT suffers a sharp drop at 512.
 
 ## Notes
 * The current config runs the Independent model.
 * When running on test, change the `eval_path` and `conll_eval_path` from dev to test.
-* The current best models are in `<coref_dir>/current_best`
 * The `model_dir` inside the `log_root` contains `stdout.log`. Check the `max_f1` after 57000 steps. For example
 ``
 2019-06-12 12:43:11,926 - INFO - __main__ - [57000] evaL_f1=0.7694, max_f1=0.7697
 ``
+* You can also load pytorch based model files (ending in `.pt`) which share BERT's architecture. See `pytorch_to_tf.py` for details.
 
 ## Citations
 If you use the pretrained *BERT*-based coreference model (or this implementation), please cite the paper, [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!).
 ```
-@article{joshi2019coref,
+@inproceedings{joshi2019coref,
     title={{BERT} for Coreference Resolution: Baselines and Analysis},
     author={Mandar Joshi and Omer Levy and Daniel S. Weld and Luke Zettlemoyer and Omer Levy},
     year={2019},
