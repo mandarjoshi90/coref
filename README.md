@@ -31,7 +31,7 @@ This assumes access to OntoNotes 5.0.
 * Experiment configurations are found in `experiments.conf`. Choose an experiment that you would like to run, e.g. `best`
 * Training: `GPU=0 python train.py <experiment>`
 * Results are stored in the `log_root` directory (see `experiments.conf`) and can be viewed via TensorBoard.
-* Evaluation: `python evaluate.py <experiment>`
+* Evaluation: `GPU=0 python evaluate.py <experiment>`
 
 
 ## Batched Prediction Instructions
@@ -48,7 +48,7 @@ This assumes access to OntoNotes 5.0.
   * `clusters` should be left empty and is only used for evaluation purposes.
   * `doc_key` indicates the genre, which can be one of the following: `"bc", "bn", "mz", "nw", "pt", "tc", "wb"`
   * `speakers` indicates the speaker of each word. These can be all empty strings if there is only one known speaker.
-* Run `python predict.py <experiment> <input_file> <output_file>`, which outputs the input jsonlines with predicted clusters.
+* Run `GPU=0 python predict.py <experiment> <input_file> <output_file>`, which outputs the input jsonlines with predicted clusters.
 
 ## Notes
 * The current config runs the Independent model.
