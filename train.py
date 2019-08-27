@@ -10,8 +10,9 @@ import tensorflow as tf
 import util
 import logging
 format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-logging.basicConfig(format=format, level=logging.INFO)
+logging.basicConfig(format=format)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 if __name__ == "__main__":
   config = util.initialize_from_env()
