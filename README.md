@@ -7,7 +7,7 @@ This repository contains code and models for the paper, [BERT for Coreference Re
 * `./setup_all.sh`: This builds the custom kernels
 
 ## Pretrained Coreference Models
-Please download following files to use the pretrained models on your data.
+Please download following files to use the *pretrained coreference models* on your data. If you want to train your own coreference model, you can skip this step.
 
 | Model          | F1 (%) |
 | -------------- |:------:|
@@ -16,8 +16,7 @@ Please download following files to use the pretrained models on your data.
 | BERT-large     | 76.9   |
 | SpanBERT-large | 79.6   |
 
-`./download_pretrained.sh <model_name>` (e.g,: bert_base, bert_large, speanbert_base, spanbert_large; assumes that `$data_dir` is set)
-The non-finetuned version of SpanBERT weights can be downloaded from, [here]()
+`./download_pretrained.sh <model_name>` (e.g,: bert_base, bert_large, speanbert_base, spanbert_large; assumes that `$data_dir` is set) This downloads BERT/SpanBERT models finetuned on OntoNotes. The non-finetuned version of SpanBERT weights will be released soon. You can use these models with `evaluate.py` and `predict.py` (the the section on Batched Prediction Instructions)
 
 
 ## Training / Finetuning Instructions
@@ -26,12 +25,12 @@ The non-finetuned version of SpanBERT weights can be downloaded from, [here]()
 
 ### Setup for training
 This assumes access to OntoNotes 5.0.
-`./setup_training.sh <ontonotes/path/ontonotes-release-5.0> $data_dir`
+`./setup_training.sh <ontonotes/path/ontonotes-release-5.0> $data_dir`. This preprocesses the OntoNotes corpus, and downloads the original (not finetuned on OntoNotes) BERT models which will be finetuned using `train.py`. 
 
 * Experiment configurations are found in `experiments.conf`. Choose an experiment that you would like to run, e.g. `bert_base`
 * Training: `GPU=0 python train.py <experiment>`
 * Results are stored in the `log_root` directory (see `experiments.conf`) and can be viewed via TensorBoard.
-* Evaluation: `GPU=0 python evaluate.py <experiment>`
+* Evaluation: `GPU=0 python evaluate.py <experiment>`. This currently evaluates on the dev set.
 
 
 ## Batched Prediction Instructions
