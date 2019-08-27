@@ -16,19 +16,19 @@ Please download following files to use the pretrained models on your data.
 | BERT-large     | 76.9   |
 | SpanBERT-large | 79.6   |
 
-`./download_pretrained.sh <model_name>` (e.g,: bert-base, bert-large, spanbert-base, spanbert-large; assumes that `$data_dir` is set)
+`./download_pretrained.sh <model_name>` (e.g,: bert_base, bert_large, speanbert_base, spanbert_large; assumes that `$data_dir` is set)
 The non-finetuned version of SpanBERT weights can be downloaded from, [here]()
 
 
 ## Training / Finetuning Instructions
-* Finetuning a BERT/SpanBERT *large* model on OntoNotes requires access to a 32GB GPU. You might be able to train the large model with a smaller `max_seq_length`, `ffnn_size`, and `model_heads = false` on a 16GB machine; this will almost certainly result in relatively poorer performance as measured on OntoNotes.
+* Finetuning a BERT/SpanBERT *large* model on OntoNotes requires access to a 32GB GPU. You might be able to train the large model with a smaller `max_seq_length`, `max_training_sentences`, `ffnn_size`, and `model_heads = false` on a 16GB machine; this will almost certainly result in relatively poorer performance as measured on OntoNotes.
 * Running/testing a large pretrained model is still possible on a 16GB GPU. You should be able to finetune the base models on smaller GPUs.
 
 ### Setup for training
 This assumes access to OntoNotes 5.0.
 `./setup_training.sh <ontonotes/path/ontonotes-release-5.0> $data_dir`
 
-* Experiment configurations are found in `experiments.conf`. Choose an experiment that you would like to run, e.g. `best`
+* Experiment configurations are found in `experiments.conf`. Choose an experiment that you would like to run, e.g. `bert_base`
 * Training: `GPU=0 python train.py <experiment>`
 * Results are stored in the `log_root` directory (see `experiments.conf`) and can be viewed via TensorBoard.
 * Evaluation: `GPU=0 python evaluate.py <experiment>`
