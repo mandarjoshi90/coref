@@ -1,5 +1,5 @@
-# BERT for Coreference Resolution
-This repository contains code and models for the paper, [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!). Additionally, we also include the coreference resolution model from the paper [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529), which is the current state of the art on OntoNotes (79.6 F1). The model architecture itself is an extension of the [e2e-coref](https://github.com/kentonl/e2e-coref) model.
+# BERT and SpanBERT for Coreference Resolution
+This repository contains code and models for the paper, [BERT for Coreference Resolution: Baselines and Analysis](https://homes.cs.washington.edu/~mandar90/). Additionally, we also include the coreference resolution model from the paper [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529), which is the current state of the art on OntoNotes (79.6 F1). The model architecture itself is an extension of the [e2e-coref](https://github.com/kentonl/e2e-coref) model.
 
 ## Setup
 * Install python3 requirements: `pip install -r requirements.txt`
@@ -74,7 +74,7 @@ If you have access to a slurm GPU cluster, you could use the following for set o
 
 
 ## Citations
-If you use the pretrained *BERT*-based coreference model (or this implementation), please cite the paper, [BERT for Coreference Resolution: Baselines and Analysis](!!!!!!!!!!!!!Insert Link!!!!!!!!).
+If you use the pretrained *BERT*-based coreference model (or this implementation), please cite the paper, [BERT for Coreference Resolution: Baselines and Analysis](https://homes.cs.washington.edu/~mandar90/).
 ```
 @inproceedings{joshi2019coref,
     title={{BERT} for Coreference Resolution: Baselines and Analysis},
