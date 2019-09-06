@@ -1,5 +1,7 @@
 # BERT and SpanBERT for Coreference Resolution
-This repository contains code and models for the paper, [BERT for Coreference Resolution: Baselines and Analysis](https://arxiv.org/abs/1908.09091). Additionally, we also include the coreference resolution model from the paper [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529), which is the current state of the art on OntoNotes (79.6 F1). The model architecture itself is an extension of the [e2e-coref](https://github.com/kentonl/e2e-coref) model.
+This repository contains code and models for the paper, [BERT for Coreference Resolution: Baselines and Analysis](https://arxiv.org/abs/1908.09091). Additionally, we also include the coreference resolution model from the paper [SpanBERT: Improving Pre-training by Representing and Predicting Spans](https://arxiv.org/abs/1907.10529), which is the current state of the art on OntoNotes (79.6 F1). Please refer to the [SpanBERT repository](https://github.com/facebookresearch/SpanBERT) for other tasks.
+
+The model architecture itself is an extension of the [e2e-coref](https://github.com/kentonl/e2e-coref) model.
 
 ## Setup
 * Install python3 requirements: `pip install -r requirements.txt`
