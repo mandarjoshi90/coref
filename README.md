@@ -18,7 +18,7 @@ Please download following files to use the *pretrained coreference models* on yo
 | BERT-large     | 76.9   |
 | SpanBERT-large | 79.6   |
 
-`./download_pretrained.sh <model_name>` (e.g,: bert_base, bert_large, spanbert_base, spanbert_large; assumes that `$data_dir` is set) This downloads BERT/SpanBERT models finetuned on OntoNotes. The original/non-finetuned version of SpanBERT weights is available in this [repository](https://github.com/facebookresearch/SpanBERT). You can use these models with `evaluate.py` and `predict.py` (the the section on Batched Prediction Instructions)
+`./download_pretrained.sh <model_name>` (e.g,: bert_base, bert_large, spanbert_base, spanbert_large; assumes that `$data_dir` is set) This downloads BERT/SpanBERT models finetuned on OntoNotes. The original/non-finetuned version of SpanBERT weights is available in this [repository](https://github.com/facebookresearch/SpanBERT). You can use these models with `evaluate.py` and `predict.py` (the section on Batched Prediction Instructions)
 
 
 ## Training / Finetuning Instructions
@@ -81,7 +81,7 @@ If you use the pretrained *BERT*-based coreference model (or this implementation
 ```
 @inproceedings{joshi2019coref,
     title={{BERT} for Coreference Resolution: Baselines and Analysis},
-    author={Mandar Joshi and Omer Levy and Daniel S. Weld and Luke Zettlemoyer and Omer Levy},
+    author={Mandar Joshi and Omer Levy and Daniel S. Weld and Luke Zettlemoyer},
     year={2019},
     booktitle={Empirical Methods in Natural Language Processing (EMNLP)}
 }
