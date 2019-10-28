@@ -63,8 +63,6 @@ def tokenize(dataset, vocab_file):
         datum['speakers'] = ['[SPL]'] + ['Speaker#1'] * (len(para_subtokens)-1) + ['[SPL]'] if tokenizer is not None else ['Speaker#1'] * (len(para_subtokens)-1)
         datum['sentences'] = para_subtokens + ['[SEP]'] if tokenizer is not None else para_subtokens
         datum['sentence_map'] = sentence_map  + [sentence_map[-1]] if tokenizer is not None else sentence_map
-        if len(datum['sentences'][0]) > 128:
-            print('fuck')
         clusters = []
         a_start, a_end =  datum['A-offset'],  datum['A-offset'] + len(datum['A'])
         b_start, b_end =  datum['B-offset'],  datum['B-offset'] + len(datum['B'])
