@@ -30,6 +30,7 @@ This assumes access to OntoNotes 5.0.
 `./setup_training.sh <ontonotes/path/ontonotes-release-5.0> $data_dir`. This preprocesses the OntoNotes corpus, and downloads the original (not finetuned on OntoNotes) BERT models which will be finetuned using `train.py`. 
 
 * Experiment configurations are found in `experiments.conf`. Choose an experiment that you would like to run, e.g. `bert_base`
+* Note that configs without the prefix `train_` load checkpoints already tuned on OntoNotes.
 * Training: `GPU=0 python train.py <experiment>`
 * Results are stored in the `log_root` directory (see `experiments.conf`) and can be viewed via TensorBoard.
 * Evaluation: `GPU=0 python evaluate.py <experiment>`. This currently evaluates on the dev set.
