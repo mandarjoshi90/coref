@@ -444,7 +444,6 @@ class CorefModel(object):
     if segment_distance is not None:
       with tf.variable_scope('segment_distance', reuse=tf.AUTO_REUSE):
         segment_distance_emb = tf.gather(tf.get_variable("segment_distance_embeddings", [self.config['max_training_sentences'], self.config["feature_size"]], initializer=tf.truncated_normal_initializer(stddev=0.02)), segment_distance) # [k, emb]
-      span_width_emb = tf.nn.dropout(segment_distance_emb, self.dropout)
       feature_emb_list.append(segment_distance_emb)
 
     feature_emb = tf.concat(feature_emb_list, 2) # [k, c, emb]
