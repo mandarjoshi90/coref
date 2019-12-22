@@ -46,7 +46,7 @@ This assumes access to OntoNotes 5.0.
   "sentences": [["[CLS]", "subword1", "##subword1", ".", "[SEP]"]], # list of BERT tokenized segments. Each segment should be less than the max_segment_len in your config
   "speakers": [["[SPL]", "-", "-", "-", "[SPL]"]], # speaker information for each subword in sentences
   "sentence_map": [0, 0, 0, 0, 0], # flat list where each element is the sentence index of the subwords
-  "subtoken_map": [0, 0, 0, 1, 2]  # flat list containing original word index for each subword. [CLS]  and the first word share the same index
+  "subtoken_map": [0, 0, 0, 1, 1]  # flat list containing original word index for each subword. [CLS]  and the first word share the same index
 }
 ```
   * `clusters` should be left empty and is only used for evaluation purposes.
