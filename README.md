@@ -11,12 +11,12 @@ The model architecture itself is an extension of the [e2e-coref](https://github.
 ## Pretrained Coreference Models
 Please download following files to use the *pretrained coreference models* on your data. If you want to train your own coreference model, you can skip this step.
 
-| Model          | F1 (%) |
-| -------------- |:------:|
-| BERT-base      | 73.9   |
-| SpanBERT-base  | 77.7   |
-| BERT-large     | 76.9   |
-| SpanBERT-large | 79.6   |
+| Model          | `<model_name>` for download | F1 (%) |
+| -------------- | --------------------------- |:------:|
+| BERT-base      | bert_base                   | 73.9   |
+| SpanBERT-base  | spanbert_base               | 77.7   |
+| BERT-large     | bert_large                  | 76.9   |
+| SpanBERT-large | spanbert_large              | 79.6   |
 
 `./download_pretrained.sh <model_name>` (e.g,: bert_base, bert_large, spanbert_base, spanbert_large; assumes that `$data_dir` is set) This downloads BERT/SpanBERT models finetuned on OntoNotes. The original/non-finetuned version of SpanBERT weights is available in this [repository](https://github.com/facebookresearch/SpanBERT). You can use these models with `evaluate.py` and `predict.py` (the section on Batched Prediction Instructions)
 
