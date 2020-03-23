@@ -15,7 +15,7 @@ JPype1==0.6.2
 Keras-Applications==1.0.8
 Keras-Preprocessing==1.1.0
 Markdown==3.1.1
-MarkupSafe==1.0
+MarkupSafe==1.1.1
 mmh3==2.5.1
 msgpack-python==0.5.4
 numpy==1.17.0
