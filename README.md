@@ -76,6 +76,10 @@ If you have access to a slurm GPU cluster, you could use the following for set o
 * `grep "\{best\}" experiments.conf | cut -d = -f 1 > torun.txt`: This creates a list of configs that can be used by the script to launch jobs. You can use a regexp to restrict the list of configs. For example, `grep "\{best\}" experiments.conf | grep "sl512*" | cut -d = -f 1 > torun.txt` will select configs with `max_segment_len = 512`.
 * `python tune.py --data_dir <coref_data_dir> --run_jobs`: This launches jobs from torun.txt on the slurm cluster.
 
+### Miscellaneous
+* If you like using Colab, check out Jonathan K. Kummerfeld's [notebook](https://colab.research.google.com/drive/1SlERO9Uc9541qv6yH26LJz5IM9j7YVra#scrollTo=H0xPknceFORt).
+* Some `g++` versions may not play nicely with this repo. If you get this:
+`tensorflow.python.framework.errors_impl.NotFoundError: ./coref_kernels.so: undefined symbol: _ZN10tensorflow12OpDefBuilder4AttrESs`, try removing the flag `-D_GLIBCXX_USE_CXX11_ABI=0` from `setup_all.sh`. Thanks to Naman Jain for the [solution](https://github.com/mandarjoshi90/coref/issues/29).
 
 ## Citations
 If you use the pretrained *BERT*-based coreference model (or this implementation), please cite the paper, [BERT for Coreference Resolution: Baselines and Analysis](https://arxiv.org/abs/1908.09091).
