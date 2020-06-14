@@ -40,5 +40,5 @@ termcolor==1.1.0
 torch==1.2.0
 torchvision==0.4.0
 typing==3.6.4
-Werkzeug==0.14.1
+Werkzeug==0.15.3
 wrapt==1.11.2
