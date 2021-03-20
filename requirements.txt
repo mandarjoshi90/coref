@@ -10,7 +10,7 @@ google-pasta==0.1.7
 grpcio==1.23.0
 h5py==2.7.1
 html5lib==0.9999999
-Jinja2==2.10
+Jinja2==2.11.3
 JPype1==0.6.2
 Keras-Applications==1.0.8
 Keras-Preprocessing==1.1.0
