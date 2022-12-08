@@ -1,7 +1,7 @@
 absl-py==0.7.1
 astor==0.8.0
 awscli==1.14.58
-certifi==2019.6.16
+certifi==2022.12.7
 cort==0.2.4.5
 docutils==0.14
 future==0.16.0
